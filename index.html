@@ -329,17 +329,36 @@ img { max-width: 100%; }
     if (!msgs.length) msgs.push({ who: "", date: "", text });
     return msgs;
   }
+
+  // 성별 추정: 명시 항목 > 앞 메시지 > 군필 여부 > 원하는 점 > 키  (+ = 남, - = 여)
+  function guessGender(p, ctx) {
+    if (p.g) return { g: p.g, why: ["성별 항목"] };
+    let s = 0; const why = [];
+    const add = (v, w) => { s += v; why.push(w); };
+    const c = ctx || "", wants = p.wants || "", raw = (p.fields || []).map(f => f.k + " " + f.v).join(" ");
+    let m;
+    if ((m = c.match(/여자|여성|여사친|여소|여동생|언니|누나|아가씨|女/))) add(-3, `앞 메시지 ‘${m[0]}’`);
+    if ((m = c.match(/남자|남성|남사친|남소|남동생|오빠|형님|훈남|男/))) add(3, `앞 메시지 ‘${m[0]}’`);
+    if ((m = raw.match(/군필|미필|병역|전역|제대|면제/))) add(3, `‘${m[0]}’ 항목`);
+    if ((m = wants.match(/키\s*1[78]\d|듬직|남자다운|오빠|연상남|어깨|훈남|아랍상|두부상|공룡상|곰상|수염|남자/))) add(-2, `원하는 점 ‘${m[0]}’`);
+    if ((m = wants.match(/여성스|청순|단아|연하녀|누나|여자|키\s*1[56]\d/))) add(2, `원하는 점 ‘${m[0]}’`);
+    const hc = p.heightCm;
+    if (hc >= 175) add(2, `키 ${hc}`); else if (hc >= 170) add(1, `키 ${hc}`);
+    else if (hc && hc <= 163) add(-2, `키 ${hc}`); else if (hc && hc <= 167) add(-1, `키 ${hc}`);
+    return { g: s >= 2 ? "M" : s <= -2 ? "F" : null, why };
+  }
   function findForms(text) {
     const res = [];
     const msgs = parseChat(text);
     msgs.forEach((msg, mi) => {
-      const near = msgs.slice(Math.max(0, mi - 3), mi + 1).filter(x => x.who === msg.who).map(x => x.text.split("\n")[0]).join(" ");
-      const hint = /여자|여성|여사친|女/.test(near) ? "F" : /남자|남성|남사친|男/.test(near) ? "M" : null;
+      // 같은 사람이 직전에 보낸 일반 메시지("여자분 소개합니다" 등)
+      const prev = msgs.slice(Math.max(0, mi - 3), mi).filter(x => x.who === msg.who && parseForm(x.text).score < 3).map(x => x.text.slice(0, 200)).join(" ");
       const chunks = msg.text.split(/\n(?=\s*1\s*[.)]\s*\S)/);
       for (const c of chunks) {
         const p = parseForm(c);
-        if (!p.g && hint) p.g = hint;
-        if (p.score >= 3 && (p.age || p.height)) res.push({ who: msg.who, date: msg.date, raw: c.trim(), p });
+        const lines = c.split("\n"); const idx = lines.findIndex(l => /^\s*\d+\s*[.)]/.test(l));
+        const pre = idx > 0 ? lines.slice(0, idx).join(" ") : "";
+        if (p.score >= 3 && (p.age || p.height)) res.push({ who: msg.who, date: msg.date, raw: c.trim(), p, guess: guessGender(p, prev + " " + pre) });
       }
     });
     return res;
@@ -595,7 +614,7 @@ img { max-width: 100%; }
     const prev = h("div", { class: "preview" });
     function updPrev() {
       const r = parseForm(ta.value);
-      if (r.g && !st.gender) setG(r.g);
+      if (!st.gender) { const gg = guessGender(r, ""); if (gg.g) setG(gg.g); }
       const rows = [["나이", r.birthYear ? `${r.birthYear}년생 (${THIS_YEAR - r.birthYear + 1}살)` : r.age], ["키", r.heightCm ? r.heightCm + "cm" : r.height], ["직업", r.job], ["지역", r.region], ["MBTI", r.mbtiCode || r.mbti], ["취미", r.hobby], ["원하는점", r.wants]];
       prev.replaceChildren(ta.value.trim()
         ? h("dl", { class: "facts" }, rows.map(([k, v]) => h("div", null, h("dt", { text: k }), h("dd", { text: v || "—", style: v ? "" : "color:var(--muted)" }))))
@@ -664,7 +683,7 @@ img { max-width: 100%; }
     const go = h("button", { class: "btn primary", disabled: true }, "가져오기");
     function scan() {
       const have = new Set(S.profiles.map(p => p.rawKey));
-      found = findForms(ta.value).map(f => ({ ...f, dup: have.has(rawKey(f.raw)), pick: !have.has(rawKey(f.raw)), gender: f.p.g || null }));
+      found = findForms(ta.value).map(f => ({ ...f, dup: have.has(rawKey(f.raw)), pick: !have.has(rawKey(f.raw)), gender: f.guess.g }));
       results.replaceChildren(...(found.length ? found.map((f, i) => {
         const seg = h("div", { class: "seg" }, ["F", "M"].map(v => h("button", { type: "button", "aria-pressed": f.gender === v, onclick: e => { f.gender = v; e.target.parentNode.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === e.target)); upd(); } }, v === "F" ? "여" : "남")));
         return h("div", { class: "imp-item" + (f.dup ? " dup" : "") },
@@ -672,6 +691,7 @@ img { max-width: 100%; }
           h("div", { class: "sum" },
             h("b", { text: [f.p.birthYear && String(f.p.birthYear).slice(2) + "년생", f.p.heightCm && f.p.heightCm + "cm", f.p.job].filter(Boolean).join(" · ") || "양식 감지" }),
             h("span", { class: "muted", style: "font-size:13px", text: [f.p.region, f.who && `올린 사람 ${f.who}`, f.date].filter(Boolean).join(" · ") }),
+            h("span", { style: "font-size:12px;color:" + (f.guess.g ? "var(--ok)" : "var(--warn)"), text: f.guess.g ? `성별 자동 추정: ${f.guess.g === "F" ? "여" : "남"} (${f.guess.why.join(", ")}) · 틀리면 바꿔 주세요` : "성별을 알아내지 못했어요. 직접 골라 주세요" }),
             f.dup ? h("span", { class: "pill p-declined", style: "justify-self:start", text: "이미 장부에 있음" }) : null,
             h("div", { class: "row" }, h("span", { class: "lbl" }, "성별"), seg)));
       }) : [h("p", { class: "muted", text: ta.value.trim() ? "소개 양식을 찾지 못했어요. ‘나이’, ‘키’ 같은 항목이 있는 메시지만 골라냅니다." : "" })]));

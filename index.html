@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>솔로 장부</title>
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <style>
@@ -167,8 +168,6 @@ textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
 .gate-box { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px 24px; display: grid; gap: 16px; box-shadow: var(--shadow); }
 .gate-box h1 { font-family: var(--f-display); font-size: 32px; margin: 0; }
 .gate-box p { margin: 0; color: var(--muted); }
-.kakao { background: #FEE500; color: #191600; border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 600; display: flex; gap: 8px; justify-content: center; align-items: center; }
-.kakao svg { width: 18px; height: 18px; }
 .me { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; z-index: 40; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 .notice { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 13px; }
@@ -179,6 +178,12 @@ textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
 body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
+/* 사진 워터마크: 보는 사람 이름이 찍혀 캡처 유출을 막는 용도 */
+.wm { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: grid; place-items: center; }
+.wm span { transform: rotate(-24deg); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); text-shadow: 0 0 2px rgba(0,0,0,.5); white-space: pre; line-height: 3.2; text-align: center; user-select: none; }
+.photo img, .gallery img, .pic img, .thumb img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
+.consent { display: flex; gap: 10px; align-items: flex-start; background: var(--sunk); border-radius: 10px; padding: 12px; font-size: 13px; }
+.consent input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
 </style>
 </head>
 <body>
@@ -202,9 +207,10 @@ img { max-width: 100%; }
         <button class="btn primary" id="btn-add">+ 프로필 등록</button>
       </div>
     </header>
-    <div class="me" style="padding-top:10px;justify-content:flex-end">
+    <div class="me" style="padding-top:10px;justify-content:flex-end;flex-wrap:wrap">
       <span id="me-name"></span>
       <button class="btn ghost" id="btn-admin" style="padding:4px 10px" hidden>관리</button>
+      <button class="btn ghost" id="btn-pin" style="padding:4px 10px">PIN 변경</button>
       <button class="btn ghost" id="btn-logout" style="padding:4px 10px">로그아웃</button>
     </div>
 
@@ -270,6 +276,8 @@ img { max-width: 100%; }
   function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
   const norm = s => (s || "").replace(/\s+/g, "").toLowerCase();
   const photoUrl = path => S.urls[path] || "";
+  const wm = () => { const t = `${S.myName || ""} ${S.phoneTail ? "·" + S.phoneTail : ""}  솔로 장부`; return h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(6).fill(t + "     " + t).join("\n") })); };
+  document.addEventListener("contextmenu", e => { if (e.target.tagName === "IMG") e.preventDefault(); });
 
   // ---------- 카톡 양식 파서 ----------
   const KEYMAP = [
@@ -342,7 +350,7 @@ img { max-width: 100%; }
     id: r.id, createdBy: r.created_by, gender: r.gender, nickname: r.nickname, matchmakerName: r.matchmaker_name,
     raw: r.raw, rawKey: r.raw_key, fields: r.fields || [], birthYear: r.birth_year, heightCm: r.height_cm,
     job: r.job, region: r.region, mbtiCode: r.mbti, hobby: r.hobby, wants: r.wants, photos: r.photos || [],
-    status: r.status, postedAt: r.posted_at, createdAt: r.created_at,
+    status: r.status, postedAt: r.posted_at, createdAt: r.created_at, consentAt: r.consent_at,
   });
   function toRow(text, extra) {
     const r = parseForm(text);
@@ -391,7 +399,7 @@ img { max-width: 100%; }
     const src = photos[0] && photoUrl(photos[0]);
     return h("button", { class: "card" + (st === "closed" ? " closed" : ""), onclick: () => openDetail(p.id), "aria-label": title(p) + " 상세 보기" },
       h("div", { class: "photo" },
-        src ? h("img", { src, alt: "", loading: "lazy" })
+        src ? [h("img", { src, alt: "", loading: "lazy" }), wm()]
             : h("div", { class: "ph" }, h("div", null, h("b", null, p.gender === "M" ? "男" : "女"), photos.length ? "불러오는 중" : "사진 없음")),
         h("span", { class: "stamp st-" + st, text: STATUS[st] }),
         h("span", { class: "gender", text: GENDER[p.gender] }),
@@ -485,9 +493,9 @@ img { max-width: 100%; }
   function openDetail(id) {
     const p = S.profiles.find(x => x.id === id); if (!p) return;
     const st = p.status || "solo"; const photos = p.photos || [];
-    const mainImg = h("div", { class: "main" }, photos[0] ? h("img", { src: photoUrl(photos[0]), alt: "" }) : h("div", { class: "ph", style: "position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)" }, "사진 없음"));
+    const mainImg = h("div", { class: "main" }, photos[0] ? [h("img", { src: photoUrl(photos[0]), alt: "" }), wm()] : h("div", { class: "ph", style: "position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)" }, "사진 없음"));
     const thumbs = h("div", { class: "thumbs" }, photos.map((ph, i) => h("button", { "aria-current": i === 0, "aria-label": `사진 ${i + 1}`, onclick: () => {
-      mainImg.replaceChildren(h("img", { src: photoUrl(ph), alt: "" })); thumbs.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i)); } }, h("img", { src: photoUrl(ph), alt: "" }))));
+      mainImg.replaceChildren(h("img", { src: photoUrl(ph), alt: "" }), wm()); thumbs.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i)); } }, h("img", { src: photoUrl(ph), alt: "" }))));
     const facts = h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v }))));
     const myReq = S.requests.find(r => r.profileId === p.id && r.fromId === S.me && r.status === "pending");
     const pendingCnt = S.requests.filter(r => r.profileId === p.id && r.toId === S.me && r.status === "pending").length;
@@ -525,13 +533,20 @@ img { max-width: 100%; }
     if (canManage(p)) {
       const stSel = h("select", { class: "in", style: "width:auto", "aria-label": "상태 변경", onchange: async e => {
         const { error } = await sb.from("profiles").update({ status: e.target.value }).eq("id", p.id);
-        if (error) return fail(error); toast(`‘${STATUS[e.target.value]}’로 바꿨어요`); refresh(); } },
+        if (error) return fail(error);
+        toast(e.target.value === "closed" && photos.length ? "마감했어요. 더 필요 없으면 ‘사진 지우기’로 정리해 주세요." : `‘${STATUS[e.target.value]}’로 바꿨어요`);
+        closeSheet(); refresh(); } },
         Object.entries(STATUS).map(([k, v]) => h("option", { value: k, selected: k === st }, v)));
       const del = h("button", { class: "btn danger", onclick: () => {
         if (del.dataset.armed) { removeProfile(p); return; }
         del.dataset.armed = "1"; del.textContent = "한 번 더 누르면 삭제"; setTimeout(() => { delete del.dataset.armed; del.textContent = "삭제"; }, 3000);
       } }, "삭제");
-      foot.push(del, h("span", { style: "margin-right:auto" }), stSel, h("button", { class: "btn", onclick: () => { closeSheet(); openEditor(p); } }, "수정"));
+      const wipe = st === "closed" && photos.length ? h("button", { class: "btn", onclick: async () => {
+        await sb.storage.from("photos").remove(photos);
+        const { error } = await sb.from("profiles").update({ photos: [] }).eq("id", p.id);
+        if (error) return fail(error); toast("사진을 지웠어요"); closeSheet(); refresh();
+      } }, "사진 지우기") : null;
+      foot.push(del, wipe, h("span", { style: "margin-right:auto" }), stSel, h("button", { class: "btn", onclick: () => { closeSheet(); openEditor(p); } }, "수정"));
     }
     foot.push(h("button", { class: "btn", onclick: closeSheet }, "닫기"));
     sheet("프로필", h("div", { class: "detail" }, h("div", { class: "gallery" }, mainImg, photos.length > 1 ? thumbs : null), right), foot);
@@ -611,11 +626,13 @@ img { max-width: 100%; }
     const onPaste = e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.some(f => f.type.startsWith("image/"))) { e.preventDefault(); addFiles(fs); } };
     document.addEventListener("paste", onPaste); onClose = () => document.removeEventListener("paste", onPaste);
 
+    const consent = h("input", { type: "checkbox", id: "ed-consent", checked: !!p.consentAt });
     const save = h("button", { class: "btn primary", onclick: async () => {
       if (!st.gender) return toast("성별을 골라 주세요");
       if (!ta.value.trim()) return toast("카톡 양식을 붙여넣어 주세요");
+      if (!consent.checked) return toast("본인 동의를 확인해 주세요");
       if (st.uploading) return toast("사진이 다 올라갈 때까지 잠깐만요");
-      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim(), photos: st.photos.filter(x => !x.startsWith("tmp:")) });
+      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim(), photos: st.photos.filter(x => !x.startsWith("tmp:")), consent_at: p.consentAt || new Date().toISOString() });
       save.disabled = true;
       const { error } = existing ? await sb.from("profiles").update(row).eq("id", existing.id) : await sb.from("profiles").insert(row);
       if (error) { fail(error); save.disabled = false; return; }
@@ -631,7 +648,9 @@ img { max-width: 100%; }
         h("div", { class: "field" }, h("span", { class: "lbl", text: "사진" }), drop),
         h("div", { class: "two" },
           h("div", { class: "field" }, h("label", { for: "ed-mm", text: "주선자" }), mm, h("span", { class: "hint", text: "카톡방에 이 사람을 올린 친구 이름" })),
-          h("div", { class: "field" }, h("label", { for: "ed-nick", text: "부를 이름 (선택)" }), nick))),
+          h("div", { class: "field" }, h("label", { for: "ed-nick", text: "부를 이름 (선택)" }), nick)),
+        h("label", { class: "consent", for: "ed-consent" }, consent,
+          h("span", null, h("b", null, "본인 동의를 받았어요. "), "이 사람에게 ‘솔로 장부 멤버들에게 사진과 소개 정보가 공유되고, 원하면 언제든 삭제된다’는 걸 알렸어요. 실명·연락처·인스타 아이디는 적지 마세요."))),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), save]);
     setTimeout(() => (existing ? nick : ta).focus(), 30);
   }
@@ -658,14 +677,17 @@ img { max-width: 100%; }
       }) : [h("p", { class: "muted", text: ta.value.trim() ? "소개 양식을 찾지 못했어요. ‘나이’, ‘키’ 같은 항목이 있는 메시지만 골라냅니다." : "" })]));
       upd();
     }
+    const consent = h("input", { type: "checkbox", id: "imp-consent", onchange: () => upd() });
     function upd() {
       const n = found.filter(f => f.pick).length; const miss = found.filter(f => f.pick && !f.gender).length;
-      go.disabled = !n || miss > 0; go.textContent = miss ? `성별을 골라 주세요 (${miss}명)` : `${n}명 가져오기`;
+      go.disabled = !n || miss > 0 || !consent.checked;
+      go.textContent = miss ? `성별을 골라 주세요 (${miss}명)` : !consent.checked && n ? "본인 동의를 확인해 주세요" : `${n}명 가져오기`;
     }
     ta.addEventListener("input", () => { clearTimeout(ta._t); ta._t = setTimeout(scan, 250); });
     go.addEventListener("click", async () => {
       go.disabled = true;
-      const rows = found.filter(x => x.pick).map(f => toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || "", posted_at: f.date || "" }));
+      const now = new Date().toISOString();
+      const rows = found.filter(x => x.pick).map(f => toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || "", posted_at: f.date || "", consent_at: now }));
       const { error } = await sb.from("profiles").insert(rows);
       if (error) { fail(error); go.disabled = false; return; }
       toast(`${rows.length}명을 가져왔어요. 사진은 각 프로필의 ‘수정’에서 붙여 주세요.`); closeSheet(); refresh();
@@ -673,7 +695,9 @@ img { max-width: 100%; }
     sheet("카톡 대화 가져오기", h("div", { style: "display:grid;gap:16px" },
       h("p", { class: "muted", style: "margin:0;font-size:13px", text: "카톡방 메뉴의 ‘대화 내용 내보내기’ 파일을 올리면 소개 양식만 골라 한 번에 장부에 넣어요. 올린 사람 이름이 주선자로 들어갑니다. 사진은 내보내기 파일에 없어서 따로 붙여야 해요." }),
       h("div", { class: "row" }, h("label", { class: "btn", for: "imp-file" }, "내보내기 .txt 파일 선택"), h("span", { class: "muted", style: "font-size:13px" }, "또는 아래에 붙여넣기")),
-      fileIn, ta, results), [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+      fileIn, ta, results,
+      h("label", { class: "consent", for: "imp-consent" }, consent, h("span", null, h("b", null, "선택한 사람 모두에게 동의를 받았어요. "), "카톡방에 올라온 사람이라도 이 장부에 올라간다는 걸 본인이 알고 있어야 해요."))),
+      [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
   }
 
   // ---------- 관리자 ----------
@@ -683,7 +707,16 @@ img { max-width: 100%; }
     const codeIn = h("input", { type: "text", id: "adm-code", value: code || "" });
     const list = h("div", { class: "list" }, S.members.map(m => h("div", { class: "req" },
       h("div", { class: "info" }, h("b", { text: m.name + (m.is_admin ? " · 관리자" : "") }), h("span", { class: "note", text: `입장 ${String(m.joined_at).slice(0, 10)} · 등록 ${S.profiles.filter(p => p.createdBy === m.id).length}명` })),
-      m.id !== S.me ? h("div", { class: "act" }, h("button", { class: "btn danger", onclick: async e => {
+      m.id !== S.me ? h("div", { class: "act" }, h("button", { class: "btn", onclick: async e => {
+        const box = e.target.closest(".req");
+        if (box.querySelector(".pin-reset")) return;
+        const inp = h("input", { type: "text", inputmode: "numeric", class: "pin-reset", placeholder: "새 PIN 4~8자리", style: "width:130px", "aria-label": "새 PIN" });
+        const ok = h("button", { class: "btn primary", onclick: async () => {
+          const { error } = await sb.rpc("reset_pin", { p_member: m.id, p_new: inp.value.trim() });
+          if (error) return fail(error); toast(`${m.name}님 PIN을 바꿨어요. 새 PIN을 카톡으로 알려 주세요.`); inp.remove(); ok.remove();
+        } }, "저장");
+        box.append(inp, ok); inp.focus();
+      } }, "PIN 초기화"), h("button", { class: "btn danger", onclick: async e => {
         if (!e.target.dataset.armed) { e.target.dataset.armed = 1; e.target.textContent = "한 번 더 누르면 내보내기"; return; }
         const { error } = await sb.from("members").delete().eq("id", m.id); if (error) return fail(error);
         toast(`${m.name}님을 내보냈어요. 초대코드도 바꿔 주세요.`); closeSheet(); refresh();
@@ -724,7 +757,7 @@ img { max-width: 100%; }
     const [pr, rq, mb] = await Promise.all([
       sb.from("profiles").select("*").order("created_at", { ascending: false }),
       sb.from("requests").select("*"),
-      sb.from("members").select("*"),
+      sb.from("members").select("id,name,is_admin,joined_at"),
     ]);
     if (pr.error) { fail(pr.error); return; }
     S.profiles = (pr.data || []).map(fromRow);
@@ -733,59 +766,93 @@ img { max-width: 100%; }
     S.names = Object.fromEntries(S.members.map(m => [m.id, m.name]));
     const meRow = S.members.find(m => m.id === S.me);
     if (!meRow) { showGate(); return; }   // 관리자가 내보낸 경우
-    S.isAdmin = !!meRow.is_admin;
+    S.isAdmin = !!meRow.is_admin; S.myName = meRow.name;
     S.loaded = true; render(); signMissing();
   }
   const refreshSoon = () => { clearTimeout(refreshT); refreshT = setTimeout(refresh, 300); };
 
-  // ---------- 로그인 / 입장 ----------
-  const KAKAO_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191600" d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.67 6.77l-.95 3.49c-.08.3.26.54.52.37l4.13-2.74c.53.07 1.07.11 1.63.11 5.52 0 10-3.58 10-8S17.52 3 12 3z"/></svg>';
-  function showGate(kind) {
+  // ---------- 로그인 (휴대폰 번호 + PIN) ----------
+  async function ensureSession() {
+    if (S.session) return true;
+    const { data, error } = await sb.auth.signInAnonymously();
+    if (error) { console.error(error); toast("로그인 준비에 실패했어요. Supabase에서 익명 로그인을 켰는지 확인해 주세요."); return false; }
+    S.session = data.session; return true;
+  }
+  const fmtPhone = v => { const d = v.replace(/\D/g, "").slice(0, 11); return d.length < 4 ? d : d.length < 8 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}`; };
+  function showGate() {
     $("#app").hidden = true; $("#gate").hidden = false;
     const box = $("#gate-box");
     if (!sb) {
       box.replaceChildren(h("h1", { text: "솔로 장부" }), h("p", { text: "config.js에 Supabase 주소와 키를 넣어야 사이트가 동작해요. 설치 가이드(README.md)를 참고하세요." }));
       return;
     }
-    if (!S.session) {
-      const btn = h("button", { class: "kakao", onclick: async () => {
-        const { error } = await sb.auth.signInWithOAuth({ provider: "kakao", options: { redirectTo: location.origin + location.pathname, scopes: "profile_nickname profile_image" } });
-        if (error) fail(error);
-      } }); btn.innerHTML = KAKAO_SVG + "카카오로 시작하기";
-      box.replaceChildren(h("h1", { text: "솔로 장부" }), h("p", { text: "우리끼리 소개팅 매물 관리. 카카오로 로그인한 뒤 초대코드를 입력하면 들어갈 수 있어요." }), btn);
-      return;
-    }
-    const meta = S.session.user.user_metadata || {};
-    const nameIn = h("input", { type: "text", id: "join-name", value: meta.name || meta.full_name || meta.nickname || meta.preferred_username || meta.user_name || "" });
-    const codeIn = h("input", { type: "text", id: "join-code", placeholder: "친구에게 받은 코드", autocomplete: "off" });
-    const go = h("button", { class: "btn primary", onclick: async () => {
-      if (!nameIn.value.trim()) return toast("이름을 적어 주세요");
+    const phone = h("input", { type: "text", id: "lg-phone", inputmode: "numeric", autocomplete: "tel", placeholder: "010-0000-0000" });
+    phone.addEventListener("input", () => { phone.value = fmtPhone(phone.value); });
+    const pin = h("input", { type: "password", id: "lg-pin", inputmode: "numeric", autocomplete: "current-password", placeholder: "숫자 4~8자리", maxlength: "8" });
+    const name = h("input", { type: "text", id: "lg-name", placeholder: "장부에 표시될 이름" });
+    const code = h("input", { type: "text", id: "lg-code", placeholder: "친구에게 받은 코드", autocomplete: "off" });
+    const joinBox = h("div", { style: "display:grid;gap:14px" , hidden: true },
+      h("p", { class: "notice", style: "margin:0", text: "처음 오셨네요! 이름과 초대코드를 입력하면 방금 정한 PIN으로 가입돼요." }),
+      h("div", { class: "field" }, h("label", { for: "lg-name", text: "내 이름" }), name),
+      h("div", { class: "field" }, h("label", { for: "lg-code", text: "초대코드" }), code));
+    const go = h("button", { class: "btn primary", style: "padding:12px" }, "입장하기");
+    async function submit() {
+      if (phone.value.replace(/\D/g, "").length < 10) return toast("휴대폰 번호를 확인해 주세요");
+      if (!/^\d{4,8}$/.test(pin.value)) return toast("PIN은 숫자 4~8자리예요");
+      if (!joinBox.hidden && !name.value.trim()) return toast("이름을 적어 주세요");
       go.disabled = true;
-      const { error } = await sb.rpc("join_group", { p_code: codeIn.value, p_name: nameIn.value });
-      go.disabled = false;
-      if (error) return fail(error);
-      enterApp();
-    } }, "입장하기");
-    codeIn.addEventListener("keydown", e => { if (e.key === "Enter") go.click(); });
-    box.replaceChildren(h("h1", { text: "초대코드 입력" }),
-      h("p", { text: "솔로 장부는 초대받은 사람만 볼 수 있어요." }),
-      h("div", { class: "field" }, h("label", { for: "join-name", text: "장부에 표시될 내 이름" }), nameIn),
-      h("div", { class: "field" }, h("label", { for: "join-code", text: "초대코드" }), codeIn),
-      go, h("button", { class: "btn ghost", onclick: () => sb.auth.signOut() }, "다른 계정으로 로그인"));
+      try {
+        if (!(await ensureSession())) return;
+        const { data, error } = await sb.rpc("phone_login", { p_phone: phone.value, p_pin: pin.value, p_code: joinBox.hidden ? null : code.value, p_name: joinBox.hidden ? null : name.value });
+        if (error) {
+          const m = error.message || "";
+          if (/need_join/.test(m)) { joinBox.hidden = false; name.focus(); return; }
+          if (/wrong_code/.test(m)) return toast("초대코드가 맞지 않아요");
+          if (/locked/.test(m)) return toast("PIN을 5번 틀려서 10분 동안 잠겼어요");
+          if (/bad_phone/.test(m)) return toast("휴대폰 번호 형식을 확인해 주세요");
+          if (/bad_pin/.test(m)) return toast("PIN은 숫자 4~8자리예요");
+          return fail(error);
+        }
+        if (data === "wrong_pin") return toast("PIN이 맞지 않아요. 잊었으면 관리자에게 초기화를 부탁하세요.");
+        toast(data === "joined" ? "환영해요! 장부에 입장했어요" : "로그인했어요");
+        await enterApp();
+      } finally { go.disabled = false; }
+    }
+    go.addEventListener("click", submit);
+    [phone, pin, name, code].forEach(i => i.addEventListener("keydown", e => { if (e.key === "Enter") submit(); }));
+    box.replaceChildren(h("h1", { text: "솔로 장부" }),
+      h("p", { text: "우리끼리 소개팅 매물 관리. 휴대폰 번호와 PIN으로 들어와요." }),
+      h("div", { class: "field" }, h("label", { for: "lg-phone", text: "휴대폰 번호" }), phone),
+      h("div", { class: "field" }, h("label", { for: "lg-pin", text: "PIN" }), pin, h("span", { class: "hint", text: "처음이면 지금 쓸 PIN을 새로 정하면 돼요." })),
+      joinBox, go,
+      h("p", { style: "font-size:12px", text: "문자 인증은 하지 않아요. 번호는 로그인 아이디로만 쓰이고 다른 멤버에게 보이지 않아요." }));
+    setTimeout(() => phone.focus(), 30);
   }
-  let channel = null;
+  function openPinChange() {
+    const oldP = h("input", { type: "password", id: "pc-old", inputmode: "numeric", maxlength: "8" });
+    const newP = h("input", { type: "password", id: "pc-new", inputmode: "numeric", maxlength: "8", placeholder: "숫자 4~8자리" });
+    sheet("PIN 변경", h("div", { style: "display:grid;gap:14px;max-width:360px" },
+      h("div", { class: "field" }, h("label", { for: "pc-old", text: "지금 PIN" }), oldP),
+      h("div", { class: "field" }, h("label", { for: "pc-new", text: "새 PIN" }), newP)),
+      [h("button", { class: "btn", onclick: closeSheet }, "취소"), h("button", { class: "btn primary", onclick: async () => {
+        const { error } = await sb.rpc("change_pin", { p_old: oldP.value, p_new: newP.value });
+        if (error) { const m = error.message || ""; return toast(/wrong_pin/.test(m) ? "지금 PIN이 맞지 않아요" : /bad_pin/.test(m) ? "새 PIN은 숫자 4~8자리예요" : "바꾸지 못했어요"); }
+        toast("PIN을 바꿨어요"); closeSheet();
+      } }, "변경")]);
+  }
+  let channel = null, signTimer = null;
   async function enterApp() {
-    const { data } = await sb.from("members").select("id").eq("id", S.me).maybeSingle();
-    if (!data) { showGate(); return; }
+    const { data } = await sb.rpc("whoami");
+    const me = data && data[0];
+    if (!me) { showGate(); return; }
+    S.me = me.id; S.myName = me.name; S.phoneTail = me.phone_tail; S.isAdmin = !!me.is_admin;
     $("#gate").hidden = true; $("#app").hidden = false;
     render(); await refresh();
     if (!channel) channel = sb.channel("ledger")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, refreshSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "requests" }, refreshSoon)
-      .on("postgres_changes", { event: "*", schema: "public", table: "members" }, refreshSoon)
       .subscribe();
-    // 서명 URL은 6시간 유효 → 5시간마다 갱신
-    setInterval(() => { S.urls = {}; signMissing(); }, 5 * 60 * 60 * 1000);
+    if (!signTimer) signTimer = setInterval(() => { S.urls = {}; signMissing(); }, 5 * 60 * 60 * 1000);
   }
 
   // ---------- events ----------
@@ -797,18 +864,20 @@ img { max-width: 100%; }
   $("#btn-add").addEventListener("click", () => openEditor());
   $("#btn-import").addEventListener("click", openImport);
   $("#btn-admin").addEventListener("click", openAdmin);
-  $("#btn-logout").addEventListener("click", () => sb.auth.signOut());
+  $("#btn-pin").addEventListener("click", openPinChange);
+  $("#btn-logout").addEventListener("click", async () => {
+    await sb.rpc("phone_logout");
+    if (channel) { sb.removeChannel(channel); channel = null; }
+    await sb.auth.signOut();
+    S.session = null; S.me = null; S.profiles = []; S.loaded = false; showGate();
+  });
 
   // ---------- boot ----------
   if (!sb) { showGate(); return; }
-  let booted = false;
-  sb.auth.onAuthStateChange((event, session) => {
-    const prevUser = S.me;
-    S.session = session; S.me = session?.user?.id || null;
-    if (!session) { if (channel) { sb.removeChannel(channel); channel = null; } S.profiles = []; S.loaded = false; showGate(); return; }
-    if (!booted || prevUser !== S.me) { booted = true; setTimeout(enterApp, 0); }
+  sb.auth.getSession().then(({ data }) => {
+    S.session = data.session;
+    if (data.session) enterApp(); else showGate();
   });
-  sb.auth.getSession().then(({ data }) => { if (!data.session) showGate(); });
 })();
 </script>
 </body>

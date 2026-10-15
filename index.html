@@ -182,6 +182,40 @@ img { max-width: 100%; }
 .wm { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: grid; place-items: center; }
 .wm span { transform: rotate(-24deg); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); text-shadow: 0 0 2px rgba(0,0,0,.5); white-space: pre; line-height: 3.2; text-align: center; user-select: none; }
 .photo img, .gallery img, .pic img, .thumb img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
+.card { cursor: pointer; }
+.mm-bar { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; scrollbar-width: none; }
+.mm-bar::-webkit-scrollbar { display: none; }
+.mm-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 12px; font-size: 14px; color: var(--muted); }
+.mm-tab span { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.mm-tab .dot { width: 8px; height: 8px; border-radius: 50%; }
+.mm-tab[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+.mm-tab[aria-pressed="true"] span { color: var(--bg); opacity: .7; }
+.mm-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; font-size: 14px; }
+.mm-head b { font-family: var(--f-display); font-size: 20px; }
+.dex { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.timer { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(1.08); }
+.lock { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.lock span { background: rgba(20,16,30,.62); color: #fff; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; }
+.lv { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--muted); background: var(--sunk); border-radius: 4px; padding: 0 5px; }
+.pill.vis-blind { background: var(--sunk); color: var(--muted); } .pill.vis-open { background: var(--ok-soft); color: var(--ok); } .pill.vis-private { background: var(--warn-soft); color: var(--warn); }
+.card.picked { outline: 2px solid var(--accent); outline-offset: -2px; }
+.basket-btn { position: absolute; bottom: 8px; left: 8px; border: 0; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; background: rgba(0,0,0,.6); color: #fff; z-index: 1; }
+.basket-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.new { display: inline-block; margin-left: 6px; vertical-align: middle; font-family: var(--f-body); font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; }
+.basket { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 15; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: calc(100% - 32px); }
+.sharepage { max-width: 620px; margin: 0 auto; display: grid; gap: 18px; padding-block: 8px 40px; }
+.share-head { display: grid; gap: 8px; }
+.share-head h1 { font-family: var(--f-display); font-size: 26px; margin: 0; text-wrap: balance; }
+.share-head p { margin: 0; color: var(--muted); }
+.share-head .callout { color: var(--ink); }
+.share-list { display: grid; gap: 18px; }
+.share-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.strip { display: flex; gap: 4px; overflow-x: auto; scroll-snap-type: x mandatory; }
+.shot { position: relative; flex: 0 0 85%; max-width: 85%; aspect-ratio: 4 / 5; scroll-snap-align: start; background: var(--sunk); }
+.strip .shot:only-child { flex-basis: 100%; max-width: 100%; }
+.shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sharepage input[type="text"] { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 15px; }
 .consent { display: flex; gap: 10px; align-items: flex-start; background: var(--sunk); border-radius: 10px; padding: 12px; font-size: 13px; }
 .consent input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
 </style>
@@ -196,10 +230,9 @@ img { max-width: 100%; }
   <!-- 앱 -->
   <div id="app" hidden>
     <header class="top">
-      <div class="brand"><h1>솔로 장부</h1><small>우리끼리 소개팅 매물 관리</small></div>
+      <div class="brand"><h1>솔로 장부</h1><small>우리 카톡방 소개팅 도감</small></div>
       <nav class="tabs" aria-label="보기">
-        <button aria-pressed="true" data-tab="all">전체</button>
-        <button aria-pressed="false" data-tab="mm">주선자별</button>
+        <button aria-pressed="true" data-tab="all">도감</button>
         <button aria-pressed="false" data-tab="inbox">신청함 <span class="badge" id="inbox-badge" hidden>0</span></button>
       </nav>
       <div class="actions">
@@ -214,6 +247,7 @@ img { max-width: 100%; }
       <button class="btn ghost" id="btn-logout" style="padding:4px 10px">로그아웃</button>
     </div>
 
+    <nav class="mm-bar" id="mm-bar" aria-label="주선자별 보기"></nav>
     <section class="filters" id="filters">
       <div class="chips" role="group" aria-label="성별">
         <button class="chip" data-g="all" aria-pressed="true">전체</button>
@@ -228,15 +262,19 @@ img { max-width: 100%; }
       </div>
       <div class="search">
         <input type="text" id="q" placeholder="직업, 지역, MBTI, 취미 검색" aria-label="검색">
-        <select id="mm-filter" aria-label="주선자"><option value="">모든 주선자</option></select>
       </div>
       <span class="count" id="count"></span>
+      <button class="btn" id="btn-addall"></button>
     </section>
 
     <main id="view"></main>
   </div>
+
+  <!-- 지인이 링크로 여는 페이지 -->
+  <section id="sharepage" class="sharepage" hidden></section>
 </div>
 
+<div id="basket" class="basket" hidden></div>
 <div id="overlay" class="overlay" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
@@ -251,10 +289,11 @@ img { max-width: 100%; }
   // ---------- state ----------
   const S = {
     session: null, me: null, isAdmin: false,
-    profiles: [], requests: [], members: [], names: {}, urls: {},
+    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {},
     tab: "all", g: "all", s: "solo", q: "", mm: "", loaded: false,
   };
   const STATUS = { solo: "소개팅 가능", meeting: "진행중", closed: "마감" };
+  const VIS = { blind: "승인 후 공개", open: "전체 공개", private: "나만 보기" };
   const GENDER = { F: "여", M: "남" };
   const THIS_YEAR = new Date().getFullYear();
 
@@ -267,7 +306,7 @@ img { max-width: 100%; }
       if (k === "class") el.className = v;
       else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
       else if (k === "text") el.textContent = v;
-      else el.setAttribute(k, v === true ? "" : v);
+      else el.setAttribute(k, v === true ? (k.startsWith("aria-") ? "true" : "") : v);
     }
     for (const c of kids.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
     return el;
@@ -276,6 +315,8 @@ img { max-width: 100%; }
   function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
   const norm = s => (s || "").replace(/\s+/g, "").toLowerCase();
   const photoUrl = path => S.urls[path] || "";
+  const blurOf = path => path.replace(/\/([^/]+)$/, "/blur/$1");
+  const lockMark = () => h("div", { class: "lock" }, h("span", { text: "주선자 승인 후 공개" }));
   const wm = () => { const t = `${S.myName || ""} ${S.phoneTail ? "·" + S.phoneTail : ""}  솔로 장부`; return h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(6).fill(t + "     " + t).join("\n") })); };
   document.addEventListener("contextmenu", e => { if (e.target.tagName === "IMG") e.preventDefault(); });
 
@@ -314,24 +355,30 @@ img { max-width: 100%; }
   }
   const rawKey = t => norm(t).replace(/[^0-9a-z가-힣]/g, "").slice(0, 400);
 
+  // 카톡 시간 → Date (분 단위)
+  function kTime(y, mo, d, ampm, hh, mm) {
+    let H = +hh; if (ampm === "오후" && H < 12) H += 12; if (ampm === "오전" && H === 12) H = 0;
+    return new Date(+y, +mo - 1, +d, H, +mm).getTime();
+  }
   function parseChat(text) {
-    const msgs = []; let cur = null; let date = "";
-    const reDate = /^-{3,}\s*(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)/;
-    const rePC = /^\[(.+?)\]\s*\[(오전|오후)\s*\d{1,2}:\d{2}\]\s?(.*)$/;
-    const reMob = /^(\d{4})[.년]\s*(\d{1,2})[.월]\s*(\d{1,2})[.일]?\.?\s*(?:(?:오전|오후)\s*)?\d{1,2}:\d{2}\s*,\s*(.+?)\s*:\s(.*)$/;
+    const msgs = []; let cur = null; let date = "", ymd = null;
+    const reDate = /^-{3,}\s*((\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일)/;
+    const rePC = /^\[(.+?)\]\s*\[(오전|오후)\s*(\d{1,2}):(\d{2})\]\s?(.*)$/;
+    const reMob = /^(\d{4})[.년]\s*(\d{1,2})[.월]\s*(\d{1,2})[.일]?\.?\s*(오전|오후)?\s*(\d{1,2}):(\d{2})\s*,\s*(.+?)\s*:\s(.*)$/;
     for (const line of text.split(/\r?\n/)) {
       let m;
-      if ((m = line.match(reDate))) { date = m[1]; cur = null; continue; }
-      if ((m = line.match(rePC))) { cur = { who: m[1].trim(), date, text: m[3] }; msgs.push(cur); continue; }
-      if ((m = line.match(reMob))) { cur = { who: m[4].trim(), date: `${m[1]}년 ${+m[2]}월 ${+m[3]}일`, text: m[5] }; msgs.push(cur); continue; }
+      if ((m = line.match(reDate))) { date = m[1]; ymd = [m[2], m[3], m[4]]; cur = null; continue; }
+      if ((m = line.match(rePC))) { cur = { who: m[1].trim(), date, t: ymd ? kTime(...ymd, m[2], m[3], m[4]) : null, text: m[5] }; msgs.push(cur); continue; }
+      if ((m = line.match(reMob))) { cur = { who: m[7].trim(), date: `${m[1]}년 ${+m[2]}월 ${+m[3]}일`, t: kTime(m[1], m[2], m[3], m[4] || "", m[5], m[6]), text: m[8] }; msgs.push(cur); continue; }
       if (cur) cur.text += "\n" + line;
     }
-    if (!msgs.length) msgs.push({ who: "", date: "", text });
+    if (!msgs.length) msgs.push({ who: "", date: "", t: null, text });
     return msgs;
   }
+  const isPhotoMsg = t => /^\s*(사진(\s*\d+장)?|이미지|photo|\S+\.(jpe?g|png|webp|heic))\s*$/i.test(t || "");
 
   // 성별 추정: 명시 항목 > 앞 메시지 > 군필 여부 > 원하는 점 > 키  (+ = 남, - = 여)
-  function guessGender(p, ctx) {
+  function guessGender(p, ctx, face) {
     if (p.g) return { g: p.g, why: ["성별 항목"] };
     let s = 0; const why = [];
     const add = (v, w) => { s += v; why.push(w); };
@@ -345,6 +392,7 @@ img { max-width: 100%; }
     const hc = p.heightCm;
     if (hc >= 175) add(2, `키 ${hc}`); else if (hc >= 170) add(1, `키 ${hc}`);
     else if (hc && hc <= 163) add(-2, `키 ${hc}`); else if (hc && hc <= 167) add(-1, `키 ${hc}`);
+    if (face && face.prob >= 0.75) add(face.g === "M" ? 3 : -3, `사진 ${face.g === "M" ? "남" : "여"} ${Math.round(face.prob * 100)}%`);
     return { g: s >= 2 ? "M" : s <= -2 ? "F" : null, why };
   }
   function findForms(text) {
@@ -358,11 +406,33 @@ img { max-width: 100%; }
         const p = parseForm(c);
         const lines = c.split("\n"); const idx = lines.findIndex(l => /^\s*\d+\s*[.)]/.test(l));
         const pre = idx > 0 ? lines.slice(0, idx).join(" ") : "";
-        if (p.score >= 3 && (p.age || p.height)) res.push({ who: msg.who, date: msg.date, raw: c.trim(), p, guess: guessGender(p, prev + " " + pre) });
+        if (p.score >= 3 && (p.age || p.height)) res.push({ who: msg.who, date: msg.date, t: msg.t, raw: c.trim(), p, ctx: prev + " " + pre, guess: guessGender(p, prev + " " + pre) });
       }
     });
     return res;
   }
+
+  // ---------- 중복 판별 ----------
+  // 같은 원문이면 무조건 중복. 원문이 달라도 출생년도가 같고 [키·MBTI·직업·지역] 중 3개 이상 겹치면 같은 사람으로 봐요.
+  function bigrams(t) { t = norm(t).replace(/[^0-9a-z가-힣]/g, ""); const g = new Set(); for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2)); return g; }
+  function sim(a, b) { const A = bigrams(a), B = bigrams(b); if (!A.size || !B.size) return 0; let n = 0; A.forEach(x => { if (B.has(x)) n++; }); return n / Math.min(A.size, B.size); }
+  function isSame(c, p) {
+    if (c.rawKey && p.rawKey && c.rawKey === p.rawKey) return "exact";
+    if (!c.birthYear || c.birthYear !== p.birthYear) return null;
+    if (c.gender && p.gender && c.gender !== p.gender) return null;
+    if (c.heightCm && p.heightCm && Math.abs(c.heightCm - p.heightCm) > 1) return null;
+    let pts = 0;
+    if (c.heightCm && p.heightCm) pts++;
+    if (c.mbtiCode && c.mbtiCode === p.mbtiCode) pts++;
+    if (sim(c.job, p.job) >= 0.5) pts++;
+    if (sim(c.region, p.region) >= 0.5) pts++;
+    return pts >= 3 ? "similar" : null;
+  }
+  function findDup(c, list, excludeId) {
+    for (const p of list) { if (p.id && p.id === excludeId) continue; const k = isSame(c, p); if (k) return { p, kind: k }; }
+    return null;
+  }
+  const candOf = (text, gender) => { const r = parseForm(text); return { rawKey: rawKey(text), gender, birthYear: r.birthYear, heightCm: r.heightCm, mbtiCode: r.mbtiCode, job: r.job, region: r.region }; };
 
   // ---------- DB 매핑 ----------
   const fromRow = r => ({
@@ -370,6 +440,7 @@ img { max-width: 100%; }
     raw: r.raw, rawKey: r.raw_key, fields: r.fields || [], birthYear: r.birth_year, heightCm: r.height_cm,
     job: r.job, region: r.region, mbtiCode: r.mbti, hobby: r.hobby, wants: r.wants, photos: r.photos || [],
     status: r.status, postedAt: r.posted_at, createdAt: r.created_at, consentAt: r.consent_at,
+    visibility: r.visibility || "open", full: r.full !== false, accessStatus: r.access_status || null,
   });
   function toRow(text, extra) {
     const r = parseForm(text);
@@ -378,7 +449,9 @@ img { max-width: 100%; }
       job: r.job || "", region: r.region || "", mbti: r.mbtiCode || "", hobby: r.hobby || "", wants: r.wants || "", ...extra,
     };
   }
-  const reqFromRow = r => ({ id: r.id, profileId: r.profile_id, fromId: r.from_id, toId: r.to_id, myProfileId: r.my_profile_id, note: r.note, status: r.status, createdAt: r.created_at });
+  const reqFromRow = r => ({ id: r.id, profileId: r.profile_id, fromId: r.from_id, toId: r.to_id, myProfileId: r.my_profile_id, note: r.note, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, outcome: r.outcome, friendName: r.friend_name || "" });
+  const shareFromRow = r => ({ id: r.id, token: r.token, label: r.label, note: r.note, profileIds: r.profile_ids || [], requestId: r.request_id, expiresAt: r.expires_at, revoked: r.revoked, createdAt: r.created_at });
+  const pickFromRow = r => ({ id: r.id, shareId: r.share_id, profileId: r.profile_id, kind: r.kind, message: r.message, handled: r.handled, createdAt: r.created_at });
 
   // ---------- 표시용 ----------
   const mmName = p => p.matchmakerName || S.names[p.createdBy] || "이름 없는 주선자";
@@ -415,19 +488,47 @@ img { max-width: 100%; }
   function card(p) {
     const st = p.status || "solo";
     const photos = p.photos || [];
-    const src = photos[0] && photoUrl(photos[0]);
-    return h("button", { class: "card" + (st === "closed" ? " closed" : ""), onclick: () => openDetail(p.id), "aria-label": title(p) + " 상세 보기" },
+    const full = p.full !== false;
+    const src = photos[0] && (full ? photoUrl(photos[0]) : photoUrl(blurOf(photos[0])));
+    const inBasket = S.basket.has(p.id);
+    const isNew = !isMine(p) && S.lastSeen && p.createdAt && p.createdAt > S.lastSeen;
+    const el = h("div", { class: "card" + (st === "closed" ? " closed" : "") + (inBasket ? " picked" : ""), role: "button", tabindex: "0", "aria-label": title(p) + " 상세 보기",
+      onclick: () => openDetail(p.id), onkeydown: e => { if (e.key === "Enter") openDetail(p.id); } },
       h("div", { class: "photo" },
-        src ? [h("img", { src, alt: "", loading: "lazy" }), wm()]
-            : h("div", { class: "ph" }, h("div", null, h("b", null, p.gender === "M" ? "男" : "女"), photos.length ? "불러오는 중" : "사진 없음")),
+        src ? [h("img", { src, alt: "", loading: "lazy", class: full ? "" : "blurred" }), full ? wm() : lockMark()]
+            : full ? h("div", { class: "ph" }, h("div", null, h("b", null, p.gender === "M" ? "男" : "女"), photos.length ? "불러오는 중" : "사진 없음"))
+            : [h("div", { class: "ph" }, h("div", null, h("b", null, p.gender === "M" ? "男" : "女"))), lockMark()],
         h("span", { class: "stamp st-" + st, text: STATUS[st] }),
         h("span", { class: "gender", text: GENDER[p.gender] }),
+        st !== "closed" && full ? h("button", { class: "basket-btn", "aria-pressed": inBasket, "aria-label": inBasket ? "보낼 목록에서 빼기" : "지인에게 보낼 목록에 담기",
+          onclick: e => { e.stopPropagation(); toggleBasket(p.id); } }, inBasket ? "✓ 담음" : "+ 담기") : null,
         photos.length > 1 ? h("span", { class: "pcount", text: `사진 ${photos.length}` }) : null),
       h("div", { class: "body" },
-        h("div", { class: "name", text: title(p) }),
+        h("div", { class: "dex", text: `No.${String(S.dex[p.id] || 0).padStart(3, "0")}` }),
+        h("div", { class: "name" }, title(p), isNew ? h("span", { class: "new", text: "NEW" }) : null),
         h("div", { class: "meta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
-        h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), "주선 ", mmName(p))));
+        h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), "주선 ", mmName(p),
+          isMine(p) && p.visibility !== "open" ? h("span", { class: "lv", text: VIS[p.visibility] }) : null)));
+    return el;
   }
+  const cartable = p => p.full !== false && (p.status || "solo") !== "closed";
+  function openCart() {
+    const items = [...S.basket].map(id => S.profiles.find(p => p.id === id)).filter(Boolean);
+    const list = h("div", { class: "list" });
+    const draw = () => {
+      const cur = [...S.basket].map(id => S.profiles.find(p => p.id === id)).filter(Boolean);
+      list.replaceChildren(...(cur.length ? cur.map(p => h("div", { class: "req" }, thumb(p),
+        h("div", { class: "info" }, h("b", { text: title(p) }), h("span", { class: "note", text: `${metaLine(p)} · 주선 ${mmName(p)}` })),
+        h("div", { class: "act" }, h("button", { class: "btn ghost", onclick: () => { S.basket.delete(p.id); draw(); render(); } }, "빼기"))))
+        : [h("p", { class: "muted", text: "장바구니가 비었어요." })]));
+    };
+    draw();
+    sheet(`장바구니 ${items.length}명`, list, [
+      h("button", { class: "btn ghost", onclick: () => { S.basket.clear(); closeSheet(); render(); } }, "전부 비우기"),
+      h("button", { class: "btn", onclick: closeSheet }, "닫기"),
+      h("button", { class: "btn primary", onclick: () => { const ids = [...S.basket]; closeSheet(); if (ids.length) openShareDialog(ids); } }, "링크 만들기")]);
+  }
+  function toggleBasket(id) { S.basket.has(id) ? S.basket.delete(id) : S.basket.add(id); render(); }
   function emptyState() {
     if (!S.loaded) return h("div", { class: "empty" }, h("h3", { text: "장부를 불러오는 중" }));
     if (!S.profiles.length) return h("div", { class: "empty" },
@@ -436,62 +537,152 @@ img { max-width: 100%; }
       h("div", { class: "row" }, h("button", { class: "btn primary", onclick: () => openEditor() }, "+ 첫 프로필 등록"), h("button", { class: "btn", onclick: openImport }, "카톡 대화 가져오기")));
     return h("div", { class: "empty" }, h("h3", { text: "조건에 맞는 사람이 없어요" }), h("p", { text: "상태를 ‘모두’로 바꾸거나 검색어를 지워 보세요." }));
   }
+  const todo = () => S.requests.filter(r => r.toId === S.me && r.status === "pending").length
+    + S.picks.filter(k => k.kind === "want" && !k.handled).length
+    + S.access.filter(a => a.owner === S.me && a.status === "pending").length;
   function render() {
     document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.tab === S.tab));
     document.querySelectorAll("[data-g]").forEach(b => b.setAttribute("aria-pressed", b.dataset.g === S.g));
     document.querySelectorAll("[data-s]").forEach(b => b.setAttribute("aria-pressed", b.dataset.s === S.s));
     $("#filters").hidden = S.tab === "inbox";
-    $("#me-name").textContent = (S.names[S.me] || "") + (S.isAdmin ? " · 관리자" : "");
+    $("#me-name").textContent = (S.names[S.me] || S.myName || "") + (S.isAdmin ? " · 관리자" : "");
     $("#btn-admin").hidden = !S.isAdmin;
-    const sel = $("#mm-filter"); const names = [...new Set(S.profiles.map(mmName))].sort();
-    sel.replaceChildren(h("option", { value: "" }, "모든 주선자"), ...names.map(n => h("option", { value: n, selected: n === S.mm }, n)));
-    const pend = S.requests.filter(r => r.toId === S.me && r.status === "pending").length;
-    const bd = $("#inbox-badge"); bd.hidden = !pend; bd.textContent = pend;
+    // 주선자 카테고리
+    const counts = {}; S.profiles.forEach(p => { const n = mmName(p); counts[n] = (counts[n] || 0) + 1; });
+    const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
+    if (S.mm && !counts[S.mm]) S.mm = "";
+    const mmBar = $("#mm-bar"); mmBar.hidden = S.tab === "inbox";
+    mmBar.replaceChildren(
+      h("button", { class: "mm-tab", "aria-pressed": !S.mm, onclick: () => { S.mm = ""; render(); } }, "전체", h("span", { text: S.profiles.length })),
+      ...names.map(n => h("button", { class: "mm-tab", "aria-pressed": S.mm === n, onclick: () => { S.mm = n; render(); } },
+        h("i", { class: "dot", style: `background:${mmColor(n)}` }), n, h("span", { text: counts[n] }))));
+    const n = todo(); const bd = $("#inbox-badge"); bd.hidden = !n; bd.textContent = n;
+    // 보낼 목록 바
+    const bar = $("#basket"); const ids = [...S.basket].filter(id => S.profiles.some(p => p.id === id));
+    bar.hidden = !ids.length || S.tab === "inbox";
+    bar.replaceChildren(h("button", { class: "btn ghost", style: "border:0", onclick: openCart }, "장바구니 ", h("b", { text: `${ids.length}명` })),
+      h("button", { class: "btn primary", onclick: () => openShareDialog(ids) }, "링크 만들기"));
 
     const v = $("#view");
     if (S.tab === "inbox") { v.replaceChildren(renderInbox()); return; }
     const list = filtered();
-    $("#count").textContent = S.loaded ? `${list.length}명 / 전체 ${S.profiles.length}명` : "";
+    $("#count").textContent = S.loaded ? `${list.length}명` : "";
+    const addable = list.filter(cartable);
+    const allIn = addable.length && addable.every(p => S.basket.has(p.id));
+    const ab = $("#btn-addall"); ab.hidden = !addable.length;
+    ab.textContent = allIn ? `이 목록 빼기 (${addable.length})` : `이 목록 전체 담기 (${addable.length})`;
     if (!list.length) { v.replaceChildren(emptyState()); return; }
-    if (S.tab === "mm") {
-      const groups = {};
-      for (const p of list) (groups[mmName(p)] ||= []).push(p);
-      v.replaceChildren(...Object.keys(groups).sort().map(n => {
-        const g = groups[n]; const solo = g.filter(p => (p.status || "solo") === "solo").length;
-        return h("section", { class: "group" },
-          h("h2", null, h("span", { class: "dot", style: `background:${mmColor(n)};width:12px;height:12px` }), n, h("span", { text: `${g.length}명 · 소개팅 가능 ${solo}명` })),
-          h("div", { class: "grid" }, g.map(card)));
-      }));
-    } else v.replaceChildren(h("div", { class: "grid" }, list.map(card)));
+    const head = S.mm ? (() => {
+      const all = S.profiles.filter(p => mmName(p) === S.mm); const c = st => all.filter(p => (p.status || "solo") === st).length;
+      return h("div", { class: "mm-head" }, h("span", { class: "dot", style: `background:${mmColor(S.mm)};width:12px;height:12px` }),
+        h("b", { text: `${S.mm}님의 매물` }), h("span", { class: "muted", text: `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}` }));
+    })() : null;
+    v.replaceChildren(...[head, h("div", { class: "grid" }, list.map(card))].filter(Boolean));
   }
-  function reqRow(r, incoming) {
+
+  // ---------- 신청함 ----------
+  const STAGE = { pending: "확인 전", asking: "본인 확인 중", accepted: "성사", declined: "거절", cancelled: "취소" };
+  const STAGE_CLS = { pending: "p-pending", asking: "p-pending", accepted: "p-accepted", declined: "p-declined", cancelled: "p-declined" };
+  const OUTCOME = { met: "소개팅 했어요", couple: "커플 됐어요", no_after: "애프터 없음" };
+  const thumb = p => h("div", { class: "thumb" }, p && p.photos && p.photos[0] && photoUrl(p.photos[0]) ? h("img", { src: photoUrl(p.photos[0]), alt: "" }) : null);
+  const byNew = (a, b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "");
+
+  function outcomeButtons(r) {
+    if (r.status !== "accepted") return null;
+    if (r.outcome) return h("span", { class: "pill p-accepted", text: OUTCOME[r.outcome] });
+    return h("div", { class: "row", style: "gap:6px" }, h("span", { class: "muted", style: "font-size:12px", text: "결과 기록:" }),
+      Object.entries(OUTCOME).map(([k, v]) => h("button", { class: "btn", style: "padding:4px 10px;font-size:13px", onclick: () => setRequest(r, null, k) }, v)));
+  }
+  function incomingRow(r) {
     const p = S.profiles.find(x => x.id === r.profileId);
-    const mine = r.myProfileId && S.profiles.find(x => x.id === r.myProfileId);
-    const who = S.names[r.fromId] || "누군가";
-    const src = p && p.photos[0] && photoUrl(p.photos[0]);
-    return h("div", { class: "req" },
-      h("div", { class: "thumb" }, src ? h("img", { src, alt: "" }) : null),
+    const y = r.myProfileId && S.profiles.find(x => x.id === r.myProfileId);
+    const from = S.names[r.fromId] || "누군가";
+    const askShare = S.shares.find(s => s.requestId === r.id && !s.revoked);
+    const acts = [];
+    if (r.status === "pending" || r.status === "asking") {
+      acts.push(h("button", { class: "btn primary", onclick: () => askOwner(r) }, askShare ? "물어보기 링크 다시 보내기" : `${p ? title(p) : "본인"}에게 물어보기`));
+      acts.push(h("button", { class: "btn", onclick: () => setRequest(r, "accepted") }, "본인이 OK (수락)"));
+      acts.push(h("button", { class: "btn", onclick: () => setRequest(r, "declined") }, "거절"));
+    }
+    if (r.status === "accepted") acts.push(h("button", { class: "btn", onclick: () => copySheet("주선자에게 알리기",
+      `[솔로 장부] ${from}님! ${p ? title(p) : ""} 쪽에서 좋다고 했어요 🙌 지인분(${r.friendName || "지인"}) 연락처 교환 진행해요~`) }, `${from}님에게 알릴 문구`));
+    if (r.status === "declined") acts.push(h("button", { class: "btn", onclick: () => copySheet("주선자에게 알리기",
+      `[솔로 장부] ${from}님, ${p ? title(p) : ""} 쪽은 이번엔 어렵다고 하네요. 다음에 좋은 분 있으면 또 연결해요!`) }, `${from}님에게 알릴 문구`));
+    return h("div", { class: "req" }, thumb(y || p),
       h("div", { class: "info" },
-        incoming ? h("b", null, who, " → ", p ? title(p) : "삭제된 프로필") : h("b", null, p ? title(p) : "삭제된 프로필", h("span", { class: "muted", text: `  · 주선 ${p ? mmName(p) : "-"}` })),
-        mine ? h("span", { class: "note", text: `소개할 사람: ${title(mine)} (${metaLine(mine)})` }) : null,
-        r.note ? h("span", { class: "note", text: r.note }) : null,
-        h("span", { class: "note", text: (r.createdAt || "").slice(0, 10) })),
-      h("div", { class: "act" },
-        h("span", { class: "pill p-" + r.status, text: { pending: "대기중", accepted: "수락", declined: "거절" }[r.status] }),
-        incoming && r.status === "pending" ? [
-          h("button", { class: "btn primary", onclick: () => answer(r, "accepted") }, "수락"),
-          h("button", { class: "btn", onclick: () => answer(r, "declined") }, "거절")] : null,
+        h("b", null, `${from}님 지인${r.friendName ? `(${r.friendName})` : ""} → ${p ? title(p) : "삭제된 프로필"}`),
+        y ? h("span", { class: "note" }, "소개할 사람: ", h("a", { href: "#", onclick: e => { e.preventDefault(); openDetail(y.id); } }, `${title(y)} · ${metaLine(y)}`)) : null,
+        r.note ? h("span", { class: "note", text: `“${r.note}”` }) : null,
+        h("span", { class: "note", text: `${(r.createdAt || "").slice(0, 10)}${r.status === "asking" ? " · 본인 답을 기다리는 중 (링크에서 답하면 자동 반영)" : ""}` }),
+        outcomeButtons(r)),
+      h("div", { class: "act", style: "flex-wrap:wrap" }, h("span", { class: "pill " + STAGE_CLS[r.status], text: STAGE[r.status] }), acts));
+  }
+  function sentRow(r) {
+    const p = S.profiles.find(x => x.id === r.profileId);
+    return h("div", { class: "req" }, thumb(p),
+      h("div", { class: "info" },
+        h("b", null, `${r.friendName || "내 지인"} → ${p ? title(p) : "삭제된 프로필"}`, h("span", { class: "muted", text: `  · 주선 ${p ? mmName(p) : "-"}` })),
+        r.note ? h("span", { class: "note", text: `“${r.note}”` }) : null,
+        h("span", { class: "note", text: (r.createdAt || "").slice(0, 10) }),
+        outcomeButtons(r)),
+      h("div", { class: "act", style: "flex-wrap:wrap" },
+        h("span", { class: "pill " + STAGE_CLS[r.status], text: STAGE[r.status] }),
+        r.status === "pending" || r.status === "asking" ? [
+          h("button", { class: "btn", onclick: () => copySheet("주선자에게 알리기", `[솔로 장부] ${p ? mmName(p) : ""}님~ ${p ? title(p) : ""}님께 제 지인${r.friendName ? `(${r.friendName})` : ""} 소개 신청 넣었어요! 장부 신청함 한 번 봐주세요 🙏\n${appUrl()}`) }, "카톡 알림 문구"),
+          h("button", { class: "btn ghost", onclick: () => setRequest(r, "cancelled") }, "취소")] : null,
         p ? h("button", { class: "btn ghost", onclick: () => openDetail(p.id) }, "보기") : null));
   }
+  function pickRow(k) {
+    const sh = S.shares.find(s => s.id === k.shareId);
+    const p = S.profiles.find(x => x.id === k.profileId);
+    const mine = p && isMine(p);
+    return h("div", { class: "req" }, thumb(p),
+      h("div", { class: "info" },
+        h("b", null, `${sh ? sh.label || "지인" : "지인"}님이 ${p ? title(p) : "삭제된 프로필"} 소개를 원해요`),
+        k.message ? h("span", { class: "note", text: `“${k.message}”` }) : null,
+        h("span", { class: "note", text: `${p ? "주선 " + mmName(p) + " · " : ""}${(k.createdAt || "").slice(0, 16).replace("T", " ")}` })),
+      h("div", { class: "act", style: "flex-wrap:wrap" },
+        p && !mine && (p.status || "solo") === "solo" ? h("button", { class: "btn primary", onclick: () => openRequest(p, { friendName: sh ? sh.label : "", note: k.message, pick: k }) }, `${mmName(p)}님에게 신청`) : null,
+        mine ? h("span", { class: "muted", style: "font-size:12px", text: "내가 등록한 사람이라 직접 연결하면 돼요" }) : null,
+        h("button", { class: "btn ghost", onclick: async () => { await sb.from("share_picks").update({ handled: true }).eq("id", k.id); refresh(); } }, "확인 완료")));
+  }
+  function shareRow(s) {
+    const live = !s.revoked && new Date(s.expiresAt) > new Date();
+    const picks = S.picks.filter(k => k.shareId === s.id);
+    const want = picks.filter(k => k.kind === "want").length, pass = picks.filter(k => k.kind === "pass").length;
+    return h("div", { class: "req" },
+      h("div", { class: "info" },
+        h("b", { text: `${s.label || "지인"}님께 보낸 ${s.profileIds.length}명` }),
+        h("span", { class: "note", text: `${live ? `${fmtDate(s.expiresAt)}에 닫힘` : s.revoked ? "중단됨" : "만료됨"} · 소개 원해요 ${want} · 패스 ${pass}` })),
+      h("div", { class: "act" },
+        live ? [h("button", { class: "btn", onclick: () => shareResult(s, false) }, "링크 보기"),
+                h("button", { class: "btn ghost", onclick: async () => { await sb.from("shares").update({ revoked: true }).eq("id", s.id); toast("링크를 중단했어요"); refresh(); } }, "중단")] : null));
+  }
+  function accessRow(a) {
+    const p = S.profiles.find(x => x.id === a.profile_id);
+    return h("div", { class: "req" }, thumb(p),
+      h("div", { class: "info" },
+        h("b", { text: `${S.names[a.requester] || "주선자"}님이 ${p ? title(p) : "매물"} 열람을 요청했어요` }),
+        a.message ? h("span", { class: "note", text: `“${a.message}”` }) : null,
+        h("span", { class: "note", text: (a.created_at || "").slice(0, 16).replace("T", " ") })),
+      h("div", { class: "act" },
+        h("button", { class: "btn primary", onclick: async () => { const { error } = await sb.rpc("answer_access", { p_id: a.id, p_approve: true }); if (error) return fail(error); toast("승인했어요"); refresh(); } }, "승인"),
+        h("button", { class: "btn", onclick: async () => { const { error } = await sb.rpc("answer_access", { p_id: a.id, p_approve: false }); if (error) return fail(error); toast("거절했어요"); refresh(); } }, "거절")));
+  }
   function renderInbox() {
-    const by = (a, b) => (b.createdAt || "").localeCompare(a.createdAt || "");
-    const inc = S.requests.filter(r => r.toId === S.me).sort(by);
-    const out = S.requests.filter(r => r.fromId === S.me).sort(by);
+    const picks = S.picks.filter(k => k.kind === "want" && !k.handled).sort(byNew);
+    const inc = S.requests.filter(r => r.toId === S.me).sort(byNew);
+    const out = S.requests.filter(r => r.fromId === S.me).sort(byNew);
+    const shares = S.shares.filter(s => !s.requestId).sort(byNew).slice(0, 20);
+    const sec = (t, hint, rows, empty) => h("section", null, h("h2", { text: t }), hint ? h("p", { class: "muted", style: "margin:0 0 10px;font-size:13px", text: hint }) : null,
+      rows.length ? h("div", { class: "list" }, rows) : h("div", { class: "empty" }, h("p", { text: empty })));
+    const accIn = S.access.filter(a => a.owner === S.me && a.status === "pending");
     return h("div", { class: "inbox" },
-      h("section", null, h("h2", { text: "받은 신청" }), h("p", { class: "muted", style: "margin:0 0 10px;font-size:13px", text: "내가 등록한 사람에게 들어온 소개팅 신청이에요. 수락하면 그 사람은 ‘진행중’으로 바뀝니다." }),
-        inc.length ? h("div", { class: "list" }, inc.map(r => reqRow(r, true))) : h("div", { class: "empty" }, h("p", { text: "아직 받은 신청이 없어요." }))),
-      h("section", null, h("h2", { text: "보낸 신청" }),
-        out.length ? h("div", { class: "list" }, out.map(r => reqRow(r, false))) : h("div", { class: "empty" }, h("p", { text: "마음에 드는 사람의 상세 화면에서 ‘소개팅 신청’을 눌러 보세요." }))));
+      accIn.length ? sec("열람 요청", "다른 주선자가 내 매물의 사진·원문을 보고 싶어해요. 승인하면 그 주선자는 자기 지인에게도 보낼 수 있어요.", accIn.map(accessRow), "") : null,
+      sec("지인 반응", "내가 보낸 링크에서 지인이 ‘소개 받고 싶어요’를 누른 사람이에요. 그 사람을 올린 주선자에게 바로 신청하세요.", picks.map(pickRow), "아직 반응이 없어요. 장부에서 사람을 ‘+ 담기’ 해서 지인에게 링크로 보내 보세요."),
+      sec("받은 신청", "내가 올린 사람에게 들어온 신청이에요. ‘물어보기’ 링크를 본인에게 보내면, 본인이 링크에서 답하는 순간 결과가 자동으로 반영돼요.", inc.map(incomingRow), "아직 받은 신청이 없어요."),
+      sec("보낸 신청", null, out.map(sentRow), "보낸 신청이 없어요."),
+      sec("내가 보낸 링크", null, shares.map(shareRow), "아직 보낸 링크가 없어요."));
   }
 
   // ---------- overlay ----------
@@ -512,40 +703,66 @@ img { max-width: 100%; }
   function openDetail(id) {
     const p = S.profiles.find(x => x.id === id); if (!p) return;
     const st = p.status || "solo"; const photos = p.photos || [];
-    const mainImg = h("div", { class: "main" }, photos[0] ? [h("img", { src: photoUrl(photos[0]), alt: "" }), wm()] : h("div", { class: "ph", style: "position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)" }, "사진 없음"));
-    const thumbs = h("div", { class: "thumbs" }, photos.map((ph, i) => h("button", { "aria-current": i === 0, "aria-label": `사진 ${i + 1}`, onclick: () => {
-      mainImg.replaceChildren(h("img", { src: photoUrl(ph), alt: "" }), wm()); thumbs.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i)); } }, h("img", { src: photoUrl(ph), alt: "" }))));
-    const facts = h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v }))));
-    const myReq = S.requests.find(r => r.profileId === p.id && r.fromId === S.me && r.status === "pending");
-    const pendingCnt = S.requests.filter(r => r.profileId === p.id && r.toId === S.me && r.status === "pending").length;
-
+    const full = p.full !== false;
+    const src = ph => full ? photoUrl(ph) : photoUrl(blurOf(ph));
+    const mainImg = h("div", { class: "main" + (full ? "" : " blind") }, photos[0] && src(photos[0]) ? [h("img", { src: src(photos[0]), alt: "" }), full ? wm() : lockMark()] : h("div", { class: "ph", style: "position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)" }, full ? "사진 없음" : lockMark()));
+    const thumbs = full ? h("div", { class: "thumbs" }, photos.map((ph, i) => h("button", { "aria-current": i === 0, "aria-label": `사진 ${i + 1}`, onclick: () => {
+      mainImg.replaceChildren(h("img", { src: photoUrl(ph), alt: "" }), wm()); thumbs.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i)); } }, h("img", { src: photoUrl(ph), alt: "" })))) : null;
+    const facts = full
+      ? h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v }))))
+      : h("dl", { class: "facts" }, [["나이", p.birthYear && `${p.birthYear}년생`], ["키", p.heightCm && p.heightCm + "cm"], ["직업", p.job], ["지역", p.region], ["MBTI", p.mbtiCode], ["취미", p.hobby], ["원하는 점", p.wants]]
+          .filter(([, v]) => v).map(([k, v]) => h("div", null, h("dt", { text: k }), h("dd", { text: v }))));
     const right = h("div", { style: "display:grid;gap:14px;align-content:start;min-width:0" },
-      h("div", { class: "row" }, h("span", { class: "stamp st-" + st, style: "position:static", text: STATUS[st] }), h("span", { class: "pill p-declined", text: GENDER[p.gender] + "성" })),
+      h("div", { class: "row" }, h("span", { class: "stamp st-" + st, style: "position:static", text: STATUS[st] }), h("span", { class: "pill p-declined", text: GENDER[p.gender] + "성" }),
+        h("span", { class: "pill vis-" + (p.visibility || "open"), text: VIS[p.visibility || "open"] })),
       h("h3", { class: "headline", text: title(p) }),
       h("div", { class: "sub" }, metaLine(p), " · 주선 ", h("b", { text: mmName(p) }), p.postedAt ? ` · ${p.postedAt} 카톡` : ""),
       facts,
-      p.raw ? h("details", { class: "raw" }, h("summary", null, "카톡 원문 보기"), h("pre", { text: p.raw })) : null);
+      full && p.raw ? h("details", { class: "raw" }, h("summary", null, "카톡 원문 보기"), h("pre", { text: p.raw })) : null);
 
+    const mySent = S.requests.find(r => r.profileId === p.id && r.fromId === S.me && ["pending", "asking"].includes(r.status));
+    const pendingCnt = S.requests.filter(r => r.profileId === p.id && r.toId === S.me && ["pending", "asking"].includes(r.status)).length;
     let reqBox = null;
-    if (!isMine(p) && st === "solo") {
-      if (myReq) reqBox = h("div", { class: "callout" }, h("b", null, "신청을 보냈어요"), h("span", { class: "muted", text: `${mmName(p)}님이 확인하면 신청함에 결과가 떠요.` }),
-        h("div", null, h("button", { class: "btn", onclick: async () => { const { error } = await sb.from("requests").delete().eq("id", myReq.id); if (error) return fail(error); toast("신청을 취소했어요"); closeSheet(); refresh(); } }, "신청 취소")));
-      else {
-        const myOwn = S.profiles.filter(x => isMine(x) && (x.status || "solo") === "solo" && x.gender !== p.gender);
-        const sel = h("select", { class: "in", id: "req-mine" }, h("option", { value: "" }, "선택 안 함 (메모로 소개)"), myOwn.map(x => h("option", { value: x.id }, `${title(x)} · ${metaLine(x)}`)));
-        const note = h("textarea", { id: "req-note", style: "min-height:80px", placeholder: "예) 제 친구 95년생 개발자인데 연락 잘하고 담백한 스타일이에요. 사진은 카톡으로 드릴게요!" });
-        reqBox = h("div", { class: "callout" },
-          h("b", null, "소개팅 신청하기"),
-          myOwn.length ? h("div", { class: "field" }, h("label", { for: "req-mine", text: "내가 등록한 사람 중 소개할 사람" }), sel) : null,
-          h("div", { class: "field" }, h("label", { for: "req-note", text: `${mmName(p)}님에게 남길 말` }), note),
-          h("div", null, h("button", { class: "btn primary", onclick: async e => {
-            e.target.disabled = true;
-            const { error } = await sb.from("requests").insert({ profile_id: p.id, my_profile_id: sel.value || null, note: note.value.trim() });
-            if (error) { fail(error); e.target.disabled = false; return; }
-            toast("신청을 보냈어요"); closeSheet(); refresh();
-          } }, "신청 보내기")));
-      }
-    } else if (isMine(p) && pendingCnt) reqBox = h("div", { class: "callout" }, h("b", null, `대기중인 신청 ${pendingCnt}건`), h("div", null, h("button", { class: "btn primary", onclick: () => { closeSheet(); S.tab = "inbox"; render(); } }, "신청함에서 확인")));
+    if (!isMine(p) && !full) {
+      const msg = h("input", { type: "text", id: "acc-msg", placeholder: "예) 회사 후배한테 보여주고 싶어요", style: "width:100%" });
+      reqBox = h("div", { class: "callout" },
+        h("b", null, "주선자 승인 후 공개되는 매물이에요"),
+        h("span", { class: "muted", style: "font-size:13px", text: `사진과 원문은 ${mmName(p)}님이 승인해야 볼 수 있고, 승인받아야 내 지인에게도 보낼 수 있어요. 요약만 보고 바로 소개 신청해도 돼요.` }),
+        p.accessStatus === "pending" ? h("div", { class: "notice", text: "열람 요청을 보냈어요. 승인되면 바로 보여요." })
+          : p.accessStatus === "denied" ? h("div", { class: "notice", text: "이번엔 열람이 어렵다고 했어요. 소개 신청으로 물어볼 수는 있어요." })
+          : h("div", { class: "field" }, h("label", { for: "acc-msg", text: `${mmName(p)}님에게 한마디 (선택)` }), msg),
+        h("div", { class: "row" },
+          !p.accessStatus ? h("button", { class: "btn", onclick: async () => {
+            const { error } = await sb.rpc("request_access", { p_profile: p.id, p_message: msg.value.trim() });
+            if (error) return fail(error);
+            closeSheet(); await refresh();
+            copySheet("열람 요청을 보냈어요", `[솔로 장부] ${mmName(p)}님~ ${title(p)}님 프로필 열람 요청 보냈어요! 장부 신청함에서 확인 부탁해요 🙏\n${appUrl()}`);
+          } }, "사진·원문 열람 요청") : null,
+          st === "solo" && !mySent ? h("button", { class: "btn primary", onclick: () => openRequest(p) }, "바로 소개 신청") : null,
+          mySent ? h("span", { class: "pill p-pending", text: `신청 진행 중 · ${STAGE[mySent.status]}` }) : null));
+    } else if (!isMine(p) && st === "solo") reqBox = h("div", { class: "callout" },
+      h("b", null, mySent ? `신청 진행 중 · ${STAGE[mySent.status]}` : "내 지인에게 연결하기"),
+      h("span", { class: "muted", style: "font-size:13px", text: mySent ? `${mmName(p)}님이 본인에게 물어보면 결과가 신청함에 떠요.` : `지인에게 먼저 보여주고, 원하면 ${mmName(p)}님에게 신청하세요.` }),
+      h("div", { class: "row" },
+        h("button", { class: "btn", onclick: () => openShareDialog([p.id]) }, "지인에게 보내기"),
+        h("button", { class: "btn", onclick: () => { toggleBasket(p.id); closeSheet(); } }, S.basket.has(p.id) ? "보낼 목록에서 빼기" : "보낼 목록에 담기"),
+        !mySent ? h("button", { class: "btn primary", onclick: () => openRequest(p) }, "소개 신청") : null));
+    else if (isMine(p)) {
+      const grantsBox = h("div", { class: "field" }, h("span", { class: "lbl", text: "사진·원문을 볼 수 있는 주선자" }), h("p", { class: "muted", style: "margin:0;font-size:13px", text: "불러오는 중…" }));
+      sb.from("access_grants").select("member_id,reason").eq("profile_id", p.id).then(({ data }) => {
+        const rows = (data || []).filter(g => g.member_id !== S.me);
+        grantsBox.lastChild.replaceWith(rows.length ? h("div", { class: "row", style: "gap:6px" }, rows.map(g => h("span", { class: "chip", style: "display:inline-flex;gap:6px;align-items:center" },
+          `${S.names[g.member_id] || "주선자"} · ${{ approved: "승인", request: "신청", matched: "성사" }[g.reason] || g.reason}`,
+          h("button", { class: "x", style: "width:20px;height:20px;font-size:12px", "aria-label": "열람권 회수", onclick: async () => {
+            const { error } = await sb.rpc("revoke_access", { p_profile: p.id, p_member: g.member_id }); if (error) return fail(error); toast("열람권을 회수했어요"); closeSheet(); refresh();
+          } }, "×"))))
+          : h("p", { class: "muted", style: "margin:0;font-size:13px", text: p.visibility === "open" ? "전체 공개라 모든 주선자가 볼 수 있어요" : "아직 없어요" }));
+      });
+      reqBox = h("div", { class: "callout", style: "background:var(--sunk)" },
+        pendingCnt ? h("div", { class: "row" }, h("b", null, `처리할 신청 ${pendingCnt}건`), h("button", { class: "btn primary", onclick: () => { closeSheet(); S.tab = "inbox"; render(); } }, "신청함에서 확인")) : null,
+        p.visibility !== "open" ? grantsBox : null,
+        st === "solo" ? h("div", null, h("button", { class: "btn", onclick: () => openShareDialog([p.id]) }, "내 지인에게 보내기")) : null);
+    }
     if (reqBox) right.append(reqBox);
 
     const foot = [];
@@ -587,15 +804,28 @@ img { max-width: 100%; }
     const path = `${S.me}/${crypto.randomUUID()}.jpg`;
     const { error } = await sb.storage.from("photos").upload(path, b, { contentType: "image/jpeg", upsert: false });
     if (error) throw error;
+    // 다른 주선자에게 보여줄 흐린 사진 (작게 줄여 강하게 흐림)
+    try { const bl = await makeBlur(b); await sb.storage.from("photos").upload(blurOf(path), bl, { contentType: "image/jpeg", upsert: true }); } catch (e) { console.warn("blur", e); }
     const { data } = await sb.storage.from("photos").createSignedUrl(path, 60 * 60 * 6);
     if (data) S.urls[path] = data.signedUrl;
     return path;
   }
+  async function makeBlur(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const w = 48, hgt = Math.round(img.height * 48 / img.width);
+      const c = document.createElement("canvas"); c.width = w; c.height = hgt;
+      const ctx = c.getContext("2d"); ctx.filter = "blur(3px)"; ctx.drawImage(img, 0, 0, w, hgt);
+      return await new Promise(res => c.toBlob(res, "image/jpeg", 0.6));
+    } finally { URL.revokeObjectURL(url); }
+  }
   async function signMissing() {
-    const need = [...new Set(S.profiles.flatMap(p => p.photos || []))].filter(p => !S.urls[p]);
+    const need = [...new Set(S.profiles.flatMap(p => (p.photos || []).map(x => p.full ? x : blurOf(x))))].filter(p => !S.urls[p] && !S.noBlur?.has(p));
     if (!need.length) return;
     const { data } = await sb.storage.from("photos").createSignedUrls(need, 60 * 60 * 6);
-    for (const d of data || []) if (d.signedUrl) S.urls[d.path] = d.signedUrl;
+    S.noBlur ||= new Set();
+    for (const d of data || []) { if (d.signedUrl) S.urls[d.path] = d.signedUrl; else if (d.path) S.noBlur.add(d.path); }
     render();
   }
 
@@ -607,6 +837,8 @@ img { max-width: 100%; }
     ta.value = p.raw || "";
     const nick = h("input", { type: "text", id: "ed-nick", placeholder: "비워두면 ‘96년생 온라인MD’처럼 자동 표시", value: p.nickname || "" });
     const mm = h("input", { type: "text", id: "ed-mm", placeholder: `비워두면 ${S.names[S.me] || "내 이름"}`, value: p.matchmakerName || "" });
+    const vis = h("select", { class: "in", id: "ed-vis" }, [["open", "전체 공개 (기본) · 모든 주선자가 도감에서 사진까지"], ["blind", "승인 후 공개 · 다른 주선자는 흐린 사진+요약만"], ["private", "나만 보기 · 내 지인 신청용"]]
+      .map(([v, t]) => h("option", { value: v, selected: (p.visibility || "open") === v }, t)));
     const seg = h("div", { class: "seg", role: "group", "aria-label": "성별" },
       h("button", { type: "button", "data-v": "F", onclick: () => setG("F") }, "여성"), h("button", { type: "button", "data-v": "M", onclick: () => setG("M") }, "남성"));
     function setG(v) { st.gender = v; seg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v)); }
@@ -634,6 +866,7 @@ img { max-width: 100%; }
     async function addFiles(files) {
       for (const f of [...files].filter(f => f.type.startsWith("image/"))) {
         const key = "tmp:" + Math.random(); st.temp[key] = URL.createObjectURL(f); st.photos.push(key); st.uploading++; drawPics();
+        if (!st.gender) faceGender(f).then(r => { if (r && r.prob >= 0.8 && !st.gender) { setG(r.g); toast(`사진으로 ${r.g === "M" ? "남성" : "여성"}을 골라 뒀어요. 틀리면 바꿔 주세요`); } });
         try { const path = await uploadPhoto(f); st.photos[st.photos.indexOf(key)] = path; }
         catch (err) { st.photos.splice(st.photos.indexOf(key), 1); toast("사진을 올리지 못했어요. 다시 시도해 주세요."); console.error(err); }
         finally { URL.revokeObjectURL(st.temp[key]); st.uploading--; drawPics(); }
@@ -646,12 +879,25 @@ img { max-width: 100%; }
     document.addEventListener("paste", onPaste); onClose = () => document.removeEventListener("paste", onPaste);
 
     const consent = h("input", { type: "checkbox", id: "ed-consent", checked: !!p.consentAt });
+    const dupWarn = h("div", { class: "callout", hidden: true });
     const save = h("button", { class: "btn primary", onclick: async () => {
       if (!st.gender) return toast("성별을 골라 주세요");
       if (!ta.value.trim()) return toast("카톡 양식을 붙여넣어 주세요");
       if (!consent.checked) return toast("본인 동의를 확인해 주세요");
       if (st.uploading) return toast("사진이 다 올라갈 때까지 잠깐만요");
-      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim(), photos: st.photos.filter(x => !x.startsWith("tmp:")), consent_at: p.consentAt || new Date().toISOString() });
+      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim(), photos: st.photos.filter(x => !x.startsWith("tmp:")), consent_at: p.consentAt || new Date().toISOString(), visibility: vis.value });
+      const d = findDup(candOf(ta.value, st.gender), S.profiles, existing && existing.id);
+      if (d && (d.kind === "exact" || !save.dataset.force)) {
+        dupWarn.hidden = false;
+        dupWarn.replaceChildren(
+          h("b", { text: d.kind === "exact" ? "이미 똑같은 양식이 장부에 있어요" : "같은 사람으로 보이는 프로필이 있어요" }),
+          h("span", { text: `${title(d.p)} · ${metaLine(d.p)} · 주선 ${mmName(d.p)} · ${STATUS[d.p.status || "solo"]}` }),
+          h("div", { class: "row" },
+            h("button", { type: "button", class: "btn", onclick: () => { closeSheet(); openDetail(d.p.id); } }, "기존 프로필 보기"),
+            d.kind === "similar" ? h("button", { type: "button", class: "btn", onclick: () => { save.dataset.force = "1"; save.click(); } }, "다른 사람이에요, 그래도 등록") : null));
+        dupWarn.scrollIntoView({ block: "nearest" });
+        return;
+      }
       save.disabled = true;
       const { error } = existing ? await sb.from("profiles").update(row).eq("id", existing.id) : await sb.from("profiles").insert(row);
       if (error) { fail(error); save.disabled = false; return; }
@@ -668,56 +914,227 @@ img { max-width: 100%; }
         h("div", { class: "two" },
           h("div", { class: "field" }, h("label", { for: "ed-mm", text: "주선자" }), mm, h("span", { class: "hint", text: "카톡방에 이 사람을 올린 친구 이름" })),
           h("div", { class: "field" }, h("label", { for: "ed-nick", text: "부를 이름 (선택)" }), nick)),
+        h("div", { class: "field" }, h("label", { for: "ed-vis", text: "공개 범위" }), vis, h("span", { class: "hint", text: "승인 후 공개면 다른 주선자는 내 승인 없이 사진을 보거나 퍼뜨릴 수 없어요" })),
+        dupWarn,
         h("label", { class: "consent", for: "ed-consent" }, consent,
           h("span", null, h("b", null, "본인 동의를 받았어요. "), "이 사람에게 ‘솔로 장부 멤버들에게 사진과 소개 정보가 공유되고, 원하면 언제든 삭제된다’는 걸 알렸어요. 실명·연락처·인스타 아이디는 적지 마세요."))),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), save]);
     setTimeout(() => (existing ? nick : ta).focus(), 30);
   }
 
+  // ---------- 외부 라이브러리 (필요할 때만 불러옴) ----------
+  const loaded = {};
+  function loadScript(src) {
+    return loaded[src] ||= new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { delete loaded[src]; rej(new Error("load " + src)); }; document.head.append(s); });
+  }
+  const FACE_VER = "1.7.15";
+  let faceReady = null;
+  function loadFace() {
+    return faceReady ||= (async () => {
+      await loadScript(`https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/dist/face-api.js`);
+      const M = `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/model/`;
+      await faceapi.nets.tinyFaceDetector.loadFromUri(M);
+      await faceapi.nets.ageGenderNet.loadFromUri(M);
+      return true;
+    })().catch(e => { console.warn("얼굴 분석 모델을 못 불러왔어요", e); faceReady = null; return false; });
+  }
+  // 사진 한 장 → {g:"M"|"F", prob} 또는 null. 사진은 이 브라우저 안에서만 분석되고 어디에도 보내지 않아요.
+  async function faceGender(blobOrUrl) {
+    if (!(await loadFace())) return null;
+    const url = typeof blobOrUrl === "string" ? blobOrUrl : URL.createObjectURL(blobOrUrl);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const r = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 })).withAgeAndGender();
+      if (!r) return null;
+      return { g: r.gender === "male" ? "M" : "F", prob: r.genderProbability };
+    } catch (e) { console.warn(e); return null; }
+    finally { if (typeof blobOrUrl !== "string") URL.revokeObjectURL(url); }
+  }
+  // 여러 장이면 가장 확신 높은 결과
+  async function facesGender(files) {
+    let best = null;
+    for (const f of files.slice(0, 3)) { const r = await faceGender(f); if (r && (!best || r.prob > best.prob)) best = r; if (best && best.prob > 0.95) break; }
+    return best;
+  }
+
+  // 사진 파일 시각: 파일명(KakaoTalk_20261015_151234567.jpg, 2026-10-15-15-12-34.jpg 등) → 없으면 파일/zip 날짜
+  function photoTime(name, fallback) {
+    const m = name.match(/(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})[-_ T]?(\d{2})[-_.:]?(\d{2})[-_.:]?(\d{2})?/);
+    if (m) { const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime(); if (!isNaN(d)) return d; }
+    return fallback || null;
+  }
+  const IMG_RE = /\.(jpe?g|png|webp|gif)$/i;
+  async function readInputs(fileList) {
+    const out = { text: "", photos: [] };
+    const add = (blob, name, t) => out.photos.push({ id: Math.random().toString(36).slice(2), blob, name, t: photoTime(name, t), url: URL.createObjectURL(blob) });
+    for (const f of fileList) {
+      if (/\.zip$/i.test(f.name)) {
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+        const zip = await JSZip.loadAsync(f);
+        for (const e of Object.values(zip.files)) {
+          if (e.dir) continue;
+          const base = e.name.split("/").pop();
+          if (/\.txt$/i.test(base)) out.text += "\n" + await e.async("string");
+          else if (IMG_RE.test(base)) { const b = await e.async("blob"); add(new Blob([b], { type: /png$/i.test(base) ? "image/png" : "image/jpeg" }), base, e.date ? e.date.getTime() : null); }
+        }
+      } else if (/\.txt$/i.test(f.name) || f.type === "text/plain") out.text += "\n" + await f.text();
+      else if (f.type.startsWith("image/") || IMG_RE.test(f.name)) add(f, f.name, f.lastModified);
+    }
+    return out;
+  }
+  // 사진 → 양식 연결: ① 사진 시각에 가장 가까운 '사진' 메시지로 올린 사람을 찾고 ② 그 사람이 30분 안에 올린 양식 중 가장 가까운 것
+  function matchPhotos(found, photos, msgs) {
+    const photoMsgs = msgs.filter(m => m.t && isPhotoMsg(m.text));
+    const MIN = 60000;
+    for (const ph of photos) {
+      ph.owner = null;
+      if (!ph.t) continue;
+      let who = null, bestPm = 3 * MIN;
+      for (const pm of photoMsgs) { const d = Math.abs(pm.t - ph.t); if (d <= bestPm) { bestPm = d; who = pm.who; } }
+      let best = null, bestD = Infinity;
+      found.forEach((f, i) => {
+        if (!f.t) return;
+        const d = Math.abs(f.t - ph.t);
+        const limit = who ? 30 * MIN : 15 * MIN;
+        if ((who && f.who !== who) || d > limit) return;
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      ph.owner = best;
+    }
+  }
+
   // ---------- 카톡 대화 가져오기 ----------
   function openImport() {
-    const ta = h("textarea", { id: "imp-raw", style: "min-height:160px", placeholder: "카톡방 > 메뉴 > 대화 내용 내보내기로 받은 .txt를 올리거나, 대화 여러 개를 통째로 복사해서 붙여넣으세요." });
-    const fileIn = h("input", { type: "file", accept: ".txt,text/plain", id: "imp-file", style: "display:none", onchange: async e => { const f = e.target.files[0]; if (f) { ta.value = await f.text(); scan(); } } });
+    const ta = h("textarea", { id: "imp-raw", style: "min-height:120px", placeholder: "또는 대화 여러 개를 통째로 복사해서 여기에 붙여넣으세요." });
+    const fileIn = h("input", { type: "file", multiple: true, accept: ".txt,.zip,text/plain,application/zip,image/*", id: "imp-file", style: "display:none" });
     const results = h("div", { class: "list" });
-    let found = [];
+    const tray = h("div", { class: "pics", style: "justify-content:flex-start" });
+    const trayBox = h("div", { class: "field", hidden: true }, h("span", { class: "lbl", text: "어느 사람인지 못 찾은 사진" }),
+      h("span", { class: "hint", text: "사진을 눌러 고른 뒤, 위에서 해당 사람의 ‘고른 사진 넣기’를 누르세요." }), tray);
+    const status = h("p", { class: "muted", style: "margin:0;font-size:13px" });
+    let found = [], photos = [], msgs = [], sel = new Set();
     const go = h("button", { class: "btn primary", disabled: true }, "가져오기");
-    function scan() {
+    const consent = h("input", { type: "checkbox", id: "imp-consent", onchange: () => upd() });
+
+    async function loadFiles(list) {
+      status.textContent = "파일 읽는 중…";
+      try {
+        const r = await readInputs([...list]);
+        if (r.text.trim()) ta.value = r.text.trim();
+        photos.forEach(p => URL.revokeObjectURL(p.url));
+        photos = r.photos;
+        status.textContent = `${r.text.trim() ? "대화 파일" : "대화 없음"} · 사진 ${photos.length}장`;
+        await scan();
+      } catch (e) { console.error(e); status.textContent = "파일을 읽지 못했어요. 카톡 내보내기 .txt / .zip 이나 사진 파일인지 확인해 주세요."; }
+    }
+    fileIn.addEventListener("change", e => loadFiles(e.target.files));
+
+    async function scan() {
       const have = new Set(S.profiles.map(p => p.rawKey));
-      found = findForms(ta.value).map(f => ({ ...f, dup: have.has(rawKey(f.raw)), pick: !have.has(rawKey(f.raw)), gender: f.guess.g }));
+      msgs = parseChat(ta.value);
+      found = findForms(ta.value).map(f => ({ ...f, gender: f.guess.g, face: null, manual: false, addPhotos: true }));
+      found.forEach((f, i) => {
+        const c = candOf(f.raw, f.gender);
+        const d = findDup(c, S.profiles);
+        if (d) f.dup = { p: d.p, kind: d.kind, inBatch: false };
+        else {
+          const prevSame = found.slice(0, i).findIndex(o => !o.dup && isSame(c, candOf(o.raw, o.gender)));
+          if (prevSame >= 0) f.dup = { p: null, kind: "batch", idx: prevSame, inBatch: true };
+        }
+        f.pick = !f.dup;
+      });
+      matchPhotos(found, photos, msgs);
+      draw();
+      // 사진 얼굴로 성별 보강 (사진 있는 사람만, 순서대로)
+      const withPics = found.map((f, i) => [f, photos.filter(p => p.owner === i)]).filter(([, ps]) => ps.length);
+      if (withPics.length) {
+        status.textContent += " · 사진으로 성별 확인 중…";
+        for (const [f, ps] of withPics) {
+          f.face = await facesGender(ps.map(p => p.blob));
+          if (!f.manual) { f.guess = guessGender(f.p, f.ctx, f.face); f.gender = f.guess.g; }
+          draw();
+        }
+        status.textContent = status.textContent.replace(" · 사진으로 성별 확인 중…", faceReady ? "" : " · 얼굴 분석은 건너뛰었어요");
+      }
+    }
+    function draw() {
       results.replaceChildren(...(found.length ? found.map((f, i) => {
-        const seg = h("div", { class: "seg" }, ["F", "M"].map(v => h("button", { type: "button", "aria-pressed": f.gender === v, onclick: e => { f.gender = v; e.target.parentNode.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === e.target)); upd(); } }, v === "F" ? "여" : "남")));
+        const mine = photos.filter(p => p.owner === i);
+        const seg = h("div", { class: "seg" }, ["F", "M"].map(v => h("button", { type: "button", "aria-pressed": f.gender === v, onclick: () => { f.gender = v; f.manual = true; draw(); } }, v === "F" ? "여" : "남")));
         return h("div", { class: "imp-item" + (f.dup ? " dup" : "") },
-          h("input", { type: "checkbox", id: "imp-" + i, checked: f.pick, "aria-label": "가져오기 선택", onchange: e => { f.pick = e.target.checked; upd(); } }),
+          h("input", { type: "checkbox", id: "imp-" + i, checked: f.pick, disabled: !!(f.dup && f.dup.kind === "exact"), "aria-label": "가져오기 선택", onchange: e => { f.pick = e.target.checked; draw(); } }),
           h("div", { class: "sum" },
             h("b", { text: [f.p.birthYear && String(f.p.birthYear).slice(2) + "년생", f.p.heightCm && f.p.heightCm + "cm", f.p.job].filter(Boolean).join(" · ") || "양식 감지" }),
             h("span", { class: "muted", style: "font-size:13px", text: [f.p.region, f.who && `올린 사람 ${f.who}`, f.date].filter(Boolean).join(" · ") }),
-            h("span", { style: "font-size:12px;color:" + (f.guess.g ? "var(--ok)" : "var(--warn)"), text: f.guess.g ? `성별 자동 추정: ${f.guess.g === "F" ? "여" : "남"} (${f.guess.why.join(", ")}) · 틀리면 바꿔 주세요` : "성별을 알아내지 못했어요. 직접 골라 주세요" }),
-            f.dup ? h("span", { class: "pill p-declined", style: "justify-self:start", text: "이미 장부에 있음" }) : null,
-            h("div", { class: "row" }, h("span", { class: "lbl" }, "성별"), seg)));
+            f.dup ? h("span", { class: "pill p-declined", style: "justify-self:start;white-space:normal",
+              text: f.dup.inBatch ? `이 대화에 같은 사람이 위에도 있어요 (${f.dup.idx + 1}번째)`
+                : `${f.dup.kind === "exact" ? "이미 장부에 있어요" : "장부에 같은 사람으로 보이는 프로필이 있어요"}: ${title(f.dup.p)} · 주선 ${mmName(f.dup.p)}` }) : null,
+            f.dup && !f.dup.inBatch && !f.pick && mine.length ? h("label", { class: "row", style: "font-size:13px;gap:6px" },
+              h("input", { type: "checkbox", checked: f.addPhotos, onchange: e => { f.addPhotos = e.target.checked; } }), `새 사진 ${mine.length}장은 기존 프로필에 추가`) : null,
+            h("div", { class: "row" }, h("span", { class: "lbl" }, "성별"), seg),
+            h("span", { style: "font-size:12px;color:" + (f.manual ? "var(--muted)" : f.guess.g ? "var(--ok)" : "var(--warn)"),
+              text: f.manual ? "직접 골랐어요" : f.guess.g ? `자동 추정 (${f.guess.why.join(", ")}) · 틀리면 바꿔 주세요` : "성별을 알아내지 못했어요. 직접 골라 주세요" }),
+            h("div", { class: "pics", style: "justify-content:flex-start" },
+              mine.map(ph => h("div", { class: "pic" }, h("img", { src: ph.url, alt: "" }),
+                h("button", { type: "button", "aria-label": "이 사람에게서 빼기", onclick: () => { ph.owner = null; draw(); } }, "×"))),
+              sel.size ? h("button", { type: "button", class: "btn", style: "align-self:center", onclick: () => {
+                photos.forEach(p => { if (sel.has(p.id)) p.owner = i; }); sel.clear(); draw();
+              } }, `고른 사진 넣기 (${sel.size})`) : null)));
       }) : [h("p", { class: "muted", text: ta.value.trim() ? "소개 양식을 찾지 못했어요. ‘나이’, ‘키’ 같은 항목이 있는 메시지만 골라냅니다." : "" })]));
+      const free = photos.filter(p => p.owner == null);
+      trayBox.hidden = !free.length || !found.length;
+      tray.replaceChildren(...free.map(ph => h("button", { type: "button", class: "pic", style: `padding:0;border:3px solid ${sel.has(ph.id) ? "var(--accent)" : "transparent"}`, "aria-pressed": sel.has(ph.id), onclick: () => { sel.has(ph.id) ? sel.delete(ph.id) : sel.add(ph.id); draw(); } }, h("img", { src: ph.url, alt: "" }))));
       upd();
     }
-    const consent = h("input", { type: "checkbox", id: "imp-consent", onchange: () => upd() });
     function upd() {
       const n = found.filter(f => f.pick).length; const miss = found.filter(f => f.pick && !f.gender).length;
-      go.disabled = !n || miss > 0 || !consent.checked;
+      const merges = found.some((f, i) => !f.pick && f.dup && !f.dup.inBatch && f.addPhotos && photos.some(p => p.owner === i));
+      go.disabled = (!n && !merges) || miss > 0 || !consent.checked;
       go.textContent = miss ? `성별을 골라 주세요 (${miss}명)` : !consent.checked && n ? "본인 동의를 확인해 주세요" : `${n}명 가져오기`;
     }
-    ta.addEventListener("input", () => { clearTimeout(ta._t); ta._t = setTimeout(scan, 250); });
+    ta.addEventListener("input", () => { clearTimeout(ta._t); ta._t = setTimeout(scan, 300); });
     go.addEventListener("click", async () => {
       go.disabled = true;
       const now = new Date().toISOString();
-      const rows = found.filter(x => x.pick).map(f => toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || "", posted_at: f.date || "", consent_at: now }));
-      const { error } = await sb.from("profiles").insert(rows);
-      if (error) { fail(error); go.disabled = false; return; }
-      toast(`${rows.length}명을 가져왔어요. 사진은 각 프로필의 ‘수정’에서 붙여 주세요.`); closeSheet(); refresh();
+      const picked = found.map((f, i) => [f, i]).filter(([f]) => f.pick);
+      const rows = [];
+      let done = 0; const total = picked.reduce((a, [, i]) => a + photos.filter(p => p.owner === i).length, 0);
+      try {
+        for (const [f, i] of picked) {
+          const paths = [];
+          for (const ph of photos.filter(p => p.owner === i)) {
+            go.textContent = `사진 올리는 중 ${++done}/${total}`;
+            paths.push(await uploadPhoto(ph.blob));
+          }
+          rows.push(toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || "", posted_at: f.date || "", consent_at: now, photos: paths }));
+        }
+        if (rows.length) { const { error } = await sb.from("profiles").insert(rows); if (error) throw error; }
+        // 중복으로 빠진 사람의 새 사진은 기존 프로필에 추가
+        let merged = 0;
+        for (const [f, i] of found.map((f, i) => [f, i]).filter(([f]) => !f.pick && f.dup && !f.dup.inBatch && f.addPhotos)) {
+          const mine = photos.filter(p => p.owner === i); if (!mine.length || !canManage(f.dup.p)) continue;
+          const paths = [];
+          for (const ph of mine) { go.textContent = "기존 프로필에 사진 추가 중…"; paths.push(await uploadPhoto(ph.blob)); }
+          const { error } = await sb.from("profiles").update({ photos: [...(f.dup.p.photos || []), ...paths] }).eq("id", f.dup.p.id);
+          if (!error) merged++;
+        }
+        toast(`${rows.length}명을 가져왔어요` + (merged ? ` · ${merged}명은 기존 프로필에 사진만 추가` : "")); closeSheet(); refresh();
+      } catch (e) { fail(e); go.disabled = false; upd(); }
     });
+    onClose = () => photos.forEach(p => URL.revokeObjectURL(p.url));
     sheet("카톡 대화 가져오기", h("div", { style: "display:grid;gap:16px" },
-      h("p", { class: "muted", style: "margin:0;font-size:13px", text: "카톡방 메뉴의 ‘대화 내용 내보내기’ 파일을 올리면 소개 양식만 골라 한 번에 장부에 넣어요. 올린 사람 이름이 주선자로 들어갑니다. 사진은 내보내기 파일에 없어서 따로 붙여야 해요." }),
-      h("div", { class: "row" }, h("label", { class: "btn", for: "imp-file" }, "내보내기 .txt 파일 선택"), h("span", { class: "muted", style: "font-size:13px" }, "또는 아래에 붙여넣기")),
-      fileIn, ta, results,
+      h("div", { class: "callout", style: "background:var(--sunk)" },
+        h("b", { text: "사진까지 한 번에 가져오기" }),
+        h("span", { style: "font-size:13px", text: "① 안드로이드: 채팅방 ≡ → 설정 → 대화 내용 내보내기 → ‘모든 메시지 내부저장소에 저장’ → 생긴 .zip 파일을 그대로 올리기" }),
+        h("span", { style: "font-size:13px", text: "② PC 카톡/아이폰: 대화 내보내기 .txt + 채팅방 ‘서랍 → 사진’에서 사진 여러 장 저장 → .txt와 사진을 같이 선택해서 올리기" }),
+        h("span", { class: "muted", style: "font-size:12px", text: "사진이 올라온 시각으로 누구 사진인지 맞춰요. 성별은 양식·앞 메시지·사진 얼굴을 함께 보고 추정해요. 얼굴 분석은 이 브라우저 안에서만 하고 사진을 밖으로 보내지 않아요." })),
+      h("div", { class: "row" }, h("label", { class: "btn primary", for: "imp-file" }, "파일 선택 (.zip / .txt / 사진)"), status),
+      fileIn, ta, results, trayBox,
       h("label", { class: "consent", for: "imp-consent" }, consent, h("span", null, h("b", null, "선택한 사람 모두에게 동의를 받았어요. "), "카톡방에 올라온 사람이라도 이 장부에 올라간다는 걸 본인이 알고 있어야 해요."))),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+    const sh = $("#overlay .sheet-body");
+    sh.addEventListener("dragover", e => e.preventDefault());
+    sh.addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
   }
 
   // ---------- 관리자 ----------
@@ -756,6 +1173,8 @@ img { max-width: 100%; }
     const m = (error && error.message) || "";
     if (/wrong_code/.test(m)) toast("초대코드가 맞지 않아요");
     else if (/own_profile/.test(m)) toast("내가 등록한 사람에게는 신청할 수 없어요");
+    else if (/need_access/.test(m)) toast("주선자 승인을 받은 매물만 지인에게 보낼 수 있어요");
+    else if (error.code === "23505" || /duplicate key|profiles_raw_key/.test(m)) toast("이미 장부에 있는 사람이에요");
     else if (/row-level security|forbidden|permission/i.test(m)) toast("권한이 없어요");
     else toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
@@ -771,14 +1190,201 @@ img { max-width: 100%; }
     toast(status === "accepted" ? "수락했어요. 카톡으로 연결해 주세요!" : "거절했어요"); refresh();
   }
 
+  // ---------- 주선 흐름: 공유 링크 · 신청 · 알림 문구 ----------
+  const appUrl = () => location.origin + location.pathname;
+  const shareUrl = token => `${appUrl()}?s=${token}`;
+  const fmtDate = iso => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast("복사했어요. 카톡에 붙여넣으세요"); return true; }
+    catch { toast("복사가 안 되면 글을 길게 눌러 직접 복사해 주세요"); return false; }
+  }
+  function copySheet(titleText, text, extra) {
+    const ta = h("textarea", { id: "copy-text", style: "min-height:140px" }); ta.value = text;
+    const btns = [h("button", { class: "btn", onclick: closeSheet }, "닫기")];
+    if (navigator.share) btns.push(h("button", { class: "btn", onclick: () => navigator.share({ text: ta.value }).catch(() => {}) }, "카톡 등으로 공유"));
+    btns.push(h("button", { class: "btn primary", onclick: () => { copyText(ta.value) || ta.select(); } }, "복사"));
+    sheet(titleText, h("div", { style: "display:grid;gap:12px" }, extra || null, h("p", { class: "muted", style: "margin:0;font-size:13px", text: "필요하면 고쳐서 보내세요." }), ta), btns);
+  }
+
+  // 지인에게 보내기 (여러 명)
+  function openShareDialog(ids, preset) {
+    const all = ids.map(id => S.profiles.find(p => p.id === id)).filter(Boolean);
+    const people = all.filter(p => p.full !== false);
+    if (!people.length) return toast("주선자 승인을 받은 매물만 지인에게 보낼 수 있어요");
+    const label = h("input", { type: "text", id: "sh-label", placeholder: "예) 회사동생 지훈", value: preset?.label || "" });
+    const note = h("textarea", { id: "sh-note", style: "min-height:70px", placeholder: "같이 보낼 한마디 (선택)" });
+    const go = h("button", { class: "btn primary", onclick: async () => {
+      if (!label.value.trim()) return toast("받는 지인 이름을 적어 주세요");
+      go.disabled = true;
+      const { data, error } = await sb.rpc("create_share", { p_profile_ids: people.map(p => p.id), p_label: label.value.trim(), p_note: note.value.trim(), p_hours: 2 });
+      go.disabled = false;
+      if (error) return fail(error);
+      S.basket.clear(); await refresh();
+      shareResult({ token: data, label: label.value.trim(), profileIds: people.map(p => p.id), expiresAt: new Date(Date.now() + 2 * 3600e3).toISOString() }, true);
+    } }, "링크 만들기");
+    sheet(`링크 만들기 · ${people.length}명`, h("div", { style: "display:grid;gap:14px" },
+      h("div", { class: "pics", style: "justify-content:flex-start" }, people.map(p => h("div", { class: "pic", title: title(p) }, p.photos[0] && photoUrl(p.photos[0]) ? h("img", { src: photoUrl(p.photos[0]), alt: "" }) : null))),
+      h("p", { class: "muted", style: "margin:0;font-size:13px", text: `${all.length > people.length ? `승인이 필요한 ${all.length - people.length}명은 빠졌어요. ` : ""}링크를 받은 지인은 가입 없이 보고 ‘소개 받고 싶어요’를 누를 수 있어요. 링크는 만든 뒤 2시간이 지나면 자동으로 닫히고, 사진에는 내 이름이 워터마크로 찍혀요.` }),
+      h("div", { class: "field" }, h("label", { for: "sh-label", text: "받는 지인" }), label),
+      h("div", { class: "field" }, h("label", { for: "sh-note", text: "한마디" }), note)),
+      [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+    setTimeout(() => label.focus(), 30);
+  }
+  function shareResult(s, fresh) {
+    const url = shareUrl(s.token);
+    const text = `[솔로 장부] ${s.label}에게 추천하는 분 ${s.profileIds.length}명이야!\n보고 마음에 드는 분 있으면 ‘소개 받고 싶어요’ 눌러줘
+⏰ 2시간 동안만 열려 (${fmtDate(s.expiresAt)}까지)\n${url}`;
+    copySheet(fresh ? "링크를 만들었어요" : "보낸 링크", text, h("div", { class: "notice", text: `아래 문구를 지인에게 카톡으로 보내세요. ${fmtDate(s.expiresAt)}에 링크가 닫혀요. 지인이 반응하면 신청함 ‘지인 반응’에 떠요.` }));
+  }
+
+  // 소개 신청 (내 지인 → 상대 주선자)
+  function openRequest(p, preset = {}) {
+    const myOwn = S.profiles.filter(x => isMine(x) && (x.status || "solo") === "solo" && x.gender !== p.gender);
+    const friend = h("input", { type: "text", id: "rq-friend", placeholder: "예) 회사동생 지훈", value: preset.friendName || "" });
+    const sel = h("select", { class: "in", id: "rq-mine" }, h("option", { value: "" }, "장부에 없음 (메모로 소개)"), myOwn.map(x => h("option", { value: x.id }, `${title(x)} · ${metaLine(x)}`)));
+    const note = h("textarea", { id: "rq-note", style: "min-height:90px", placeholder: "예) 95년생 개발자, 연락 잘하고 담백한 스타일이에요. 사진 보고 꼭 소개받고 싶대요!" });
+    note.value = preset.note || "";
+    const go = h("button", { class: "btn primary", onclick: async () => {
+      if (!friend.value.trim()) return toast("지인 이름을 적어 주세요");
+      go.disabled = true;
+      const { error } = await sb.from("requests").insert({ profile_id: p.id, my_profile_id: sel.value || null, note: note.value.trim(), friend_name: friend.value.trim() });
+      go.disabled = false;
+      if (error) return fail(error);
+      if (preset.pick) await sb.from("share_picks").update({ handled: true }).eq("id", preset.pick.id);
+      await refresh();
+      copySheet("신청을 보냈어요", `[솔로 장부] ${mmName(p)}님~ ${title(p)}님께 제 지인(${friend.value.trim()}) 소개 신청 넣었어요! 장부 신청함 한 번 봐주세요 🙏\n${appUrl()}`,
+        h("div", { class: "notice", text: `${mmName(p)}님이 장부를 자주 안 보면, 이 문구를 카톡으로 보내 알려 주세요.` }));
+    } }, "신청 보내기");
+    sheet(`${title(p)} 소개 신청`, h("div", { style: "display:grid;gap:14px" },
+      h("p", { class: "muted", style: "margin:0;font-size:13px", text: `${mmName(p)}님에게 신청이 가요. ${mmName(p)}님이 본인에게 물어보고, 결과가 신청함으로 돌아와요.` }),
+      h("div", { class: "two" },
+        h("div", { class: "field" }, h("label", { for: "rq-friend", text: "소개받을 내 지인" }), friend),
+        h("div", { class: "field" }, h("label", { for: "rq-mine", text: "장부에 등록된 내 지인이면 선택" }), sel, h("span", { class: "hint", text: "선택하면 상대가 사진과 프로필을 바로 볼 수 있어요" }))),
+      h("div", { class: "field" }, h("label", { for: "rq-note", text: `${mmName(p)}님에게 남길 말` }), note)),
+      [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+  }
+
+  // 받은 신청 → 본인(매물)에게 물어보는 링크
+  async function askOwner(r) {
+    const p = S.profiles.find(x => x.id === r.profileId);
+    let s = S.shares.find(x => x.requestId === r.id && !x.revoked && new Date(x.expiresAt) > new Date());
+    if (!s) {
+      const { data, error } = await sb.rpc("create_share", { p_profile_ids: r.myProfileId ? [r.myProfileId] : [], p_label: p ? title(p) : "", p_note: "", p_hours: 72, p_request: r.id });
+      if (error) return fail(error);
+      await refresh();
+      s = { token: data, expiresAt: new Date(Date.now() + 72 * 3600e3).toISOString() };
+    }
+    copySheet("본인에게 물어보기", `[솔로 장부] 너 소개받고 싶다는 사람 있어! 프로필 보고 괜찮으면 ‘좋아요’ 눌러줘 (${fmtDate(s.expiresAt)}까지)\n${shareUrl(s.token)}`,
+      h("div", { class: "notice", text: "본인이 링크에서 ‘좋아요/괜찮아요’를 누르면 신청 결과가 자동으로 바뀌고, 상대 주선자에게도 보여요." }));
+  }
+  async function setRequest(r, status, outcome) {
+    const { error } = await sb.rpc("update_request", { p_id: r.id, p_status: status, p_outcome: outcome || null });
+    if (error) return fail(error);
+    toast(outcome ? `‘${OUTCOME[outcome]}’로 기록했어요` : status === "accepted" ? "성사! 상대 주선자에게 알려 주세요" : status === "declined" ? "거절로 기록했어요" : "취소했어요");
+    refresh();
+  }
+
+  // ---------- 지인이 여는 공유 페이지 (가입 없음) ----------
+  async function showSharePage(token) {
+    $("#gate").hidden = true; $("#app").hidden = true;
+    const box = $("#sharepage"); box.hidden = false;
+    box.replaceChildren(h("p", { class: "muted", text: "불러오는 중…" }));
+    if (!S.session) {
+      const { data, error } = await sb.auth.signInAnonymously();
+      if (error) { box.replaceChildren(h("div", { class: "empty" }, h("h3", { text: "링크를 열 수 없어요" }), h("p", { text: "잠시 후 다시 열어 주세요." }))); return; }
+      S.session = data.session;
+    }
+    const { data, error } = await sb.rpc("open_share", { p_token: token });
+    if (error) {
+      const expired = /expired/.test(error.message || "");
+      box.replaceChildren(h("div", { class: "empty" }, h("h3", { text: expired ? "링크 기간이 끝났어요" : "열 수 없는 링크예요" }), h("p", { text: "보내준 친구에게 새 링크를 달라고 해 주세요." })));
+      return;
+    }
+    const d = data; const profs = d.profiles || [];
+    const leftSec = () => Math.floor((new Date(d.expires_at) - Date.now()) / 1000);
+    const paths = profs.flatMap(p => p.photos || []);
+    // 사진 주소도 링크 만료 시각까지만 유효하게
+    if (paths.length) { const r = await sb.storage.from("photos").createSignedUrls(paths, Math.max(60, leftSec())); for (const x of r.data || []) if (x.signedUrl) S.urls[x.path] = x.signedUrl; }
+    const timer = h("div", { class: "timer" });
+    const tick = () => {
+      const s2 = leftSec();
+      if (s2 <= 0) {
+        clearInterval(tickT);
+        box.replaceChildren(h("div", { class: "empty" }, h("h3", { text: "링크 시간이 끝났어요" }), h("p", { text: "2시간이 지나 닫혔어요. 보내준 친구에게 새 링크를 달라고 해 주세요." })));
+        return;
+      }
+      const hh = Math.floor(s2 / 3600), mm = Math.floor(s2 % 3600 / 60), ss = s2 % 60;
+      timer.textContent = `⏰ ${hh ? hh + "시간 " : ""}${mm}분 ${String(ss).padStart(2, "0")}초 뒤 닫혀요`;
+    };
+    const tickT = setInterval(tick, 1000);
+    const mark = () => h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(6).fill(`${d.sharer}님 공유 · 외부 유출 금지     ${d.sharer}님 공유`).join("\n") }));
+    const pcard = (p, actions) => {
+      const ph = (p.photos || []).map(x => photoUrl(x)).filter(Boolean);
+      const r = { birthYear: p.birth_year, heightCm: p.height_cm, mbtiCode: p.mbti };
+      return h("article", { class: "share-card" },
+        ph.length ? h("div", { class: "strip" }, ph.map(u => h("div", { class: "shot" }, h("img", { src: u, alt: "" }), mark()))) : null,
+        h("div", { style: "padding:14px 16px;display:grid;gap:10px" },
+          h("h3", { class: "headline", style: "font-size:22px", text: [p.birth_year && String(p.birth_year).slice(2) + "년생", p.job && p.job.split(/\n|\/|,/)[0]].filter(Boolean).join(" ") || "소개 프로필" }),
+          h("div", { class: "sub", text: [metaLine(r), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
+          h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v })))),
+          actions));
+    };
+    const head = d.mode === "ask"
+      ? h("header", { class: "share-head" }, h("h1", { text: "소개받고 싶다는 분이 있어요" }),
+          h("p", { text: `${d.sharer}님이 보낸 링크예요. 아래 분이 ${d.target ? [d.target.birth_year && String(d.target.birth_year).slice(2) + "년생", d.target.job].filter(Boolean).join(" ") + "님을" : "당신을"} 소개받고 싶어해요.` }),
+          d.request_note ? h("p", { class: "callout", text: `“${d.request_note}”` }) : null)
+      : h("header", { class: "share-head" }, h("h1", { text: `${d.label || "지인"}님께 추천하는 분들` }),
+          h("p", { text: `${d.sharer}님이 보냈어요 · ${profs.length}명` }), timer,
+          d.note ? h("p", { class: "callout", text: `“${d.note}”` }) : null);
+
+    const pickArea = (pid, current, ask) => {
+      const area = h("div", { style: "display:grid;gap:8px" });
+      const draw = cur => {
+        const msg = h("input", { type: "text", placeholder: ask ? "한마디 (선택)" : "주선자에게 한마디 (선택)", "aria-label": "한마디" });
+        const send = async kind => {
+          const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: pid, p_kind: kind, p_message: msg.value.trim() });
+          if (error) return toast(/expired/.test(error.message || "") ? "링크 기간이 끝났어요" : "전달하지 못했어요. 다시 눌러 주세요");
+          toast(kind === "want" ? `${d.sharer}님에게 전달했어요!` : "알겠어요. 전달했어요"); draw(kind);
+        };
+        area.replaceChildren(...[
+          cur ? h("div", { class: "notice", style: cur === "want" ? "background:var(--ok-soft);color:var(--ok)" : "", text: cur === "want" ? (ask ? "좋다고 전했어요. 주선자가 연락처 교환을 도와줄 거예요." : `소개 원한다고 ${d.sharer}님에게 전했어요.`) : "패스했어요." }) : null,
+          !cur ? msg : null,
+          h("div", { class: "row" },
+            h("button", { class: "btn primary", style: "flex:1;padding:12px", onclick: () => send("want") }, ask ? "좋아요, 소개 받을게요" : "소개 받고 싶어요"),
+            h("button", { class: "btn", style: "padding:12px", onclick: () => send("pass") }, ask ? "이번엔 괜찮아요" : "패스"))].filter(Boolean));
+      };
+      draw(current); return area;
+    };
+    let body;
+    if (d.mode === "ask") {
+      const decided = d.request_status === "accepted" || d.request_status === "declined";
+      const pid = profs[0]?.id || d.target?.id;
+      const actions = decided ? h("div", { class: "notice", text: d.request_status === "accepted" ? "이미 ‘좋아요’로 답했어요." : "이미 답을 보냈어요." }) : pickArea(pid, profs[0]?.my_pick, true);
+      body = profs.length ? profs.map(p => pcard(p, actions))
+        : [h("article", { class: "share-card", style: "padding:16px;display:grid;gap:10px" }, h("p", { style: "margin:0", text: d.request_friend ? `${d.request_friend}님 (프로필은 주선자에게 카톡으로 받아 보세요)` : "프로필은 주선자에게 카톡으로 받아 보세요." }), actions)];
+    } else body = profs.map(p => pcard(p, (p.status || "solo") === "solo" ? pickArea(p.id, p.my_pick, false) : h("div", { class: "notice", text: "지금은 다른 분과 진행 중이에요." })));
+    if (d.mode === "ask") head.append(timer);
+    tick();
+    if (leftSec() <= 0) return;
+    box.replaceChildren(head, h("div", { class: "share-list" }, body),
+      h("p", { class: "muted", style: "font-size:12px;text-align:center", text: "이 페이지는 받은 사람만 보도록 보낸 링크예요. 캡처해서 다른 사람에게 보내지 말아 주세요." }));
+  }
+
   // ---------- 데이터 로드 ----------
   let refreshT = null;
   async function refresh() {
-    const [pr, rq, mb] = await Promise.all([
-      sb.from("profiles").select("*").order("created_at", { ascending: false }),
+    const [pr, rq, mb, shs, pk, ac] = await Promise.all([
+      sb.rpc("list_profiles"),
       sb.from("requests").select("*"),
       sb.from("members").select("id,name,is_admin,joined_at"),
+      sb.from("shares").select("*").order("created_at", { ascending: false }).limit(200),
+      sb.from("share_picks").select("*").order("created_at", { ascending: false }).limit(500),
+      sb.from("access_requests").select("*").order("created_at", { ascending: false }).limit(300),
     ]);
+    S.access = ac.data || [];
+    S.dex = {}; [...(pr.data || [])].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")).forEach((r, i) => { S.dex[r.id] = i + 1; });
+    S.shares = (shs.data || []).map(shareFromRow);
+    S.picks = (pk.data || []).map(pickFromRow);
     if (pr.error) { fail(pr.error); return; }
     S.profiles = (pr.data || []).map(fromRow);
     S.requests = (rq.data || []).map(reqFromRow);
@@ -867,12 +1473,21 @@ img { max-width: 100%; }
     if (!me) { showGate(); return; }
     S.me = me.id; S.myName = me.name; S.phoneTail = me.phone_tail; S.isAdmin = !!me.is_admin;
     $("#gate").hidden = true; $("#app").hidden = false;
+    try { S.lastSeen = localStorage.getItem("solo_last_seen_" + S.me) || null; } catch {}
+    const markSeen = () => { try { localStorage.setItem("solo_last_seen_" + S.me, new Date().toISOString()); } catch {} };
+    document.addEventListener("visibilitychange", () => { if (document.hidden) markSeen(); });
+    window.addEventListener("pagehide", markSeen);
     render(); await refresh();
     if (!channel) channel = sb.channel("ledger")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, refreshSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "requests" }, refreshSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "share_picks" }, refreshSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "access_requests" }, refreshSoon)
       .subscribe();
     if (!signTimer) signTimer = setInterval(() => { S.urls = {}; signMissing(); }, 5 * 60 * 60 * 1000);
+    // 블라인드 매물 변경은 실시간 알림이 안 올 수 있어 1분마다 + 화면 돌아올 때 새로고침
+    setInterval(() => { if (!document.hidden) refreshSoon(); }, 60000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshSoon(); });
   }
 
   // ---------- events ----------
@@ -880,7 +1495,13 @@ img { max-width: 100%; }
   document.querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => { S.g = b.dataset.g; render(); }));
   document.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => { S.s = b.dataset.s; render(); }));
   $("#q").addEventListener("input", e => { S.q = e.target.value; render(); });
-  $("#mm-filter").addEventListener("change", e => { S.mm = e.target.value; render(); });
+  $("#btn-addall").addEventListener("click", () => {
+    const ids = filtered().filter(cartable).map(p => p.id);
+    const allIn = ids.length && ids.every(id => S.basket.has(id));
+    ids.forEach(id => allIn ? S.basket.delete(id) : S.basket.add(id));
+    toast(allIn ? `${ids.length}명을 장바구니에서 뺐어요` : `${ids.length}명을 장바구니에 담았어요`);
+    render();
+  });
   $("#btn-add").addEventListener("click", () => openEditor());
   $("#btn-import").addEventListener("click", openImport);
   $("#btn-admin").addEventListener("click", openAdmin);
@@ -894,8 +1515,10 @@ img { max-width: 100%; }
 
   // ---------- boot ----------
   if (!sb) { showGate(); return; }
+  const shareToken = new URLSearchParams(location.search).get("s");
   sb.auth.getSession().then(({ data }) => {
     S.session = data.session;
+    if (shareToken) { showSharePage(shareToken); return; }
     if (data.session) enterApp(); else showGate();
   });
 })();

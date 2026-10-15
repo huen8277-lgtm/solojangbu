@@ -190,6 +190,41 @@ img { max-width: 100%; }
 .mm-tab .dot { width: 8px; height: 8px; border-radius: 50%; }
 .mm-tab[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
 .mm-tab[aria-pressed="true"] span { color: var(--bg); opacity: .7; }
+.ledger { display: grid; gap: 8px; }
+.basket .btn { white-space: nowrap; }
+.lrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.lrow.picked { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.lrow.closed { opacity: .6; }
+.lcheck { display: grid; place-items: center; padding: 0 6px 0 12px; cursor: pointer; }
+.lcheck input { width: 20px; height: 20px; accent-color: var(--accent); }
+.lmain { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 0; background: transparent; text-align: left; padding: 10px 12px 10px 4px; min-width: 0; }
+.lthumb { width: 56px; height: 70px; border-radius: 8px; overflow: hidden; background: var(--sunk); display: grid; place-items: center; color: var(--muted); font-family: var(--f-display); font-size: 22px; position: relative; }
+.lthumb img { width: 100%; height: 100%; object-fit: cover; }
+.linfo { min-width: 0; display: grid; gap: 2px; }
+.lname { font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.lmeta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.lrow .mm { margin-top: 0; }
+.g { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 5px; flex: none; }
+.g-F { background: var(--accent-soft); color: var(--accent); } .g-M { background: var(--sunk); color: var(--ink); }
+@media (max-width: 420px) { .lmain .stamp { display: none; } }
+.links { display: grid; gap: 12px; }
+.link-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.link-card.closed { background: var(--sunk); }
+.link-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 0; background: transparent; padding: 14px 16px; }
+.link-head .note { font-size: 12px; color: var(--muted); }
+.link-head[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.chev { color: var(--muted); transition: transform .15s; }
+.link-body { display: grid; gap: 10px; padding: 0 16px 14px; }
+.link-actions { padding: 0 16px 14px; gap: 6px; }
+.picks { display: grid; gap: 8px; }
+.pick { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--bg); }
+.pick.done { opacity: .6; }
+.pick .info { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.pick .note { font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pick .act { display: flex; gap: 6px; flex-wrap: wrap; }
+.mm-msgs { border-top: 1px solid var(--line); padding-top: 16px; }
+.mm-msgs summary { cursor: pointer; font-weight: 600; }
+.sub-h { font-size: 15px; margin: 0 0 8px; }
 .mm-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; font-size: 14px; }
 .mm-head b { font-family: var(--f-display); font-size: 20px; }
 .dex { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
@@ -230,9 +265,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   <!-- 앱 -->
   <div id="app" hidden>
     <header class="top">
-      <div class="brand"><h1>솔로 장부</h1><small>우리 카톡방 소개팅 도감</small></div>
+      <div class="brand"><h1>솔로 장부</h1><small>우리 카톡방 소개팅 장부</small></div>
       <nav class="tabs" aria-label="보기">
-        <button aria-pressed="true" data-tab="all">도감</button>
+        <button aria-pressed="true" data-tab="all">장부 리스트</button>
         <button aria-pressed="false" data-tab="inbox">신청함 <span class="badge" id="inbox-badge" hidden>0</span></button>
       </nav>
       <div class="actions">
@@ -289,7 +324,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   // ---------- state ----------
   const S = {
     session: null, me: null, isAdmin: false,
-    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {},
+    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {}, openLinks: new Set(),
     tab: "all", g: "all", s: "solo", q: "", mm: "", loaded: false,
   };
   const STATUS = { solo: "소개팅 가능", meeting: "진행중", closed: "마감" };
@@ -451,7 +486,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   }
   const reqFromRow = r => ({ id: r.id, profileId: r.profile_id, fromId: r.from_id, toId: r.to_id, myProfileId: r.my_profile_id, note: r.note, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, outcome: r.outcome, friendName: r.friend_name || "" });
   const shareFromRow = r => ({ id: r.id, token: r.token, label: r.label, note: r.note, profileIds: r.profile_ids || [], requestId: r.request_id, expiresAt: r.expires_at, revoked: r.revoked, createdAt: r.created_at });
-  const pickFromRow = r => ({ id: r.id, shareId: r.share_id, profileId: r.profile_id, kind: r.kind, message: r.message, handled: r.handled, createdAt: r.created_at });
+  const pickFromRow = r => ({ id: r.id, shareId: r.share_id, profileId: r.profile_id, kind: r.kind, message: r.message, viewerName: r.viewer_name || "", handled: r.handled, createdAt: r.created_at });
 
   // ---------- 표시용 ----------
   const mmName = p => p.matchmakerName || S.names[p.createdBy] || "이름 없는 주선자";
@@ -504,12 +539,31 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           onclick: e => { e.stopPropagation(); toggleBasket(p.id); } }, inBasket ? "✓ 담음" : "+ 담기") : null,
         photos.length > 1 ? h("span", { class: "pcount", text: `사진 ${photos.length}` }) : null),
       h("div", { class: "body" },
-        h("div", { class: "dex", text: `No.${String(S.dex[p.id] || 0).padStart(3, "0")}` }),
         h("div", { class: "name" }, title(p), isNew ? h("span", { class: "new", text: "NEW" }) : null),
         h("div", { class: "meta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
         h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), "주선 ", mmName(p),
           isMine(p) && p.visibility !== "open" ? h("span", { class: "lv", text: VIS[p.visibility] }) : null)));
     return el;
+  }
+  function row(p) {
+    const st = p.status || "solo";
+    const photos = p.photos || [];
+    const full = p.full !== false;
+    const src = photos[0] && (full ? photoUrl(photos[0]) : photoUrl(blurOf(photos[0])));
+    const inBasket = S.basket.has(p.id);
+    const isNew = !isMine(p) && S.lastSeen && p.createdAt && p.createdAt > S.lastSeen;
+    const ok = cartable(p);
+    return h("div", { class: "lrow" + (inBasket ? " picked" : "") + (st === "closed" ? " closed" : "") },
+      h("label", { class: "lcheck", title: ok ? "담기" : full ? "마감된 매물은 담을 수 없어요" : "주선자 승인이 필요해요", onclick: e => e.stopPropagation() },
+        h("input", { type: "checkbox", checked: inBasket, disabled: !ok, "aria-label": `${title(p)} 담기`, onchange: () => toggleBasket(p.id) })),
+      h("button", { class: "lmain", onclick: () => openDetail(p.id), "aria-label": `${title(p)} 상세 보기` },
+        h("div", { class: "lthumb" }, src ? [h("img", { src, alt: "", loading: "lazy", class: full ? "" : "blurred" })] : h("span", { text: p.gender === "M" ? "男" : "女" })),
+        h("div", { class: "linfo" },
+          h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p), isNew ? h("span", { class: "new", text: "NEW" }) : null),
+          h("div", { class: "lmeta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
+          h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), mmName(p),
+            !full ? h("span", { class: "lv", text: "승인 후 공개" }) : isMine(p) && p.visibility !== "open" ? h("span", { class: "lv", text: VIS[p.visibility] }) : null)),
+        h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: STATUS[st] })));
   }
   const cartable = p => p.full !== false && (p.status || "solo") !== "closed";
   function openCart() {
@@ -577,7 +631,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       return h("div", { class: "mm-head" }, h("span", { class: "dot", style: `background:${mmColor(S.mm)};width:12px;height:12px` }),
         h("b", { text: `${S.mm}님의 매물` }), h("span", { class: "muted", text: `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}` }));
     })() : null;
-    v.replaceChildren(...[head, h("div", { class: "grid" }, list.map(card))].filter(Boolean));
+    v.replaceChildren(...[head, h("div", { class: "ledger" }, list.map(row))].filter(Boolean));
   }
 
   // ---------- 신청함 ----------
@@ -669,20 +723,78 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         h("button", { class: "btn primary", onclick: async () => { const { error } = await sb.rpc("answer_access", { p_id: a.id, p_approve: true }); if (error) return fail(error); toast("승인했어요"); refresh(); } }, "승인"),
         h("button", { class: "btn", onclick: async () => { const { error } = await sb.rpc("answer_access", { p_id: a.id, p_approve: false }); if (error) return fail(error); toast("거절했어요"); refresh(); } }, "거절")));
   }
+  // 신청함: 내가 만든 링크별로, 그 링크로 들어온 사람이 신청한 매물을 정리
+  function leftText(iso) {
+    const s2 = Math.floor((new Date(iso) - Date.now()) / 1000);
+    if (s2 <= 0) return null;
+    const hh = Math.floor(s2 / 3600), mm = Math.floor(s2 % 3600 / 60);
+    return `${hh ? hh + "시간 " : ""}${mm}분 남음`;
+  }
+  function linkCard(s) {
+    const left = s.revoked ? null : leftText(s.expiresAt);
+    const picks = S.picks.filter(k => k.shareId === s.id);
+    const wants = picks.filter(k => k.kind === "want").sort(byNew);
+    const passIds = new Set(picks.filter(k => k.kind === "pass").map(k => k.profileId));
+    const reacted = new Set(picks.map(k => k.profileId));
+    const quiet = s.profileIds.filter(id => !reacted.has(id));
+    const open = S.openLinks.has(s.id) || (wants.some(k => !k.handled));
+    const nameOf = id => { const p = S.profiles.find(x => x.id === id); return p ? title(p) : "삭제된 매물"; };
+    const wantRow = k => {
+      const p = S.profiles.find(x => x.id === k.profileId);
+      return h("div", { class: "pick" + (k.handled ? " done" : "") },
+        h("div", { class: "thumb", style: "width:48px;height:60px" }, p && p.photos[0] && photoUrl(p.photos[0]) ? h("img", { src: photoUrl(p.photos[0]), alt: "" }) : null),
+        h("div", { class: "info" },
+          h("b", { text: p ? `${title(p)} · ${metaLine(p)}` : "삭제된 매물" }),
+          h("span", { class: "note", text: `${k.viewerName || s.label || "지인"}님 신청 · 주선 ${p ? mmName(p) : "-"} · ${fmtDate(k.createdAt)}` }),
+          k.message ? h("span", { class: "note", text: `“${k.message}”` }) : null),
+        h("div", { class: "act" },
+          k.handled ? h("span", { class: "pill p-accepted", text: "처리 완료" }) : [
+            p && !isMine(p) && (p.status || "solo") === "solo" ? h("button", { class: "btn primary", onclick: () => openRequest(p, { friendName: k.viewerName || s.label, note: k.message, pick: k }) }, `${mmName(p)}님에게 연결 요청`) : null,
+            p && isMine(p) ? h("span", { class: "muted", style: "font-size:12px", text: "내 매물 · 직접 연결" }) : null,
+            h("button", { class: "btn ghost", onclick: async () => { await sb.from("share_picks").update({ handled: true }).eq("id", k.id); refresh(); } }, "처리 완료")]));
+    };
+    const body = h("div", { class: "link-body" },
+      wants.length ? h("div", { class: "picks" }, wants.map(wantRow)) : h("p", { class: "muted", style: "margin:0;font-size:13px", text: left ? "아직 신청한 매물이 없어요." : "신청 없이 링크가 닫혔어요." }),
+      passIds.size ? h("p", { class: "muted", style: "margin:0;font-size:12px", text: `패스: ${[...passIds].map(nameOf).join(", ")}` }) : null,
+      quiet.length ? h("p", { class: "muted", style: "margin:0;font-size:12px", text: `반응 없음: ${quiet.map(nameOf).join(", ")}` }) : null);
+    body.hidden = !open;
+    const pending = wants.filter(k => !k.handled).length;
+    return h("article", { class: "link-card" + (left ? "" : " closed") },
+      h("button", { class: "link-head", "aria-expanded": open, onclick: () => { S.openLinks.has(s.id) ? S.openLinks.delete(s.id) : S.openLinks.add(s.id); body.hidden = !body.hidden; } },
+        h("div", { style: "min-width:0;display:grid;gap:2px;text-align:left" },
+          h("b", { text: `${s.label || "지인"}님께 보낸 링크` }),
+          h("span", { class: "note", text: `${fmtDate(s.createdAt)} · 매물 ${s.profileIds.length}명 · ${left ? "⏰ " + left : s.revoked ? "중단됨" : "만료됨"}` })),
+        h("div", { class: "row", style: "gap:6px;flex-wrap:nowrap" },
+          wants.length ? h("span", { class: "pill " + (pending ? "p-pending" : "p-accepted"), text: `신청 ${wants.length}` }) : h("span", { class: "pill p-declined", text: "신청 0" }),
+          h("span", { class: "chev", text: "▾" }))),
+      body,
+      left ? h("div", { class: "row link-actions" },
+        h("button", { class: "btn", onclick: () => shareResult(s, false) }, "링크·문구 다시 보기"),
+        h("button", { class: "btn ghost", onclick: async () => { await sb.from("shares").update({ revoked: true }).eq("id", s.id); toast("링크를 닫았어요"); refresh(); } }, "지금 닫기")) : null);
+  }
   function renderInbox() {
-    const picks = S.picks.filter(k => k.kind === "want" && !k.handled).sort(byNew);
+    const links = S.shares.filter(s => !s.requestId).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const pendingAll = S.picks.filter(k => k.kind === "want" && !k.handled).length;
     const inc = S.requests.filter(r => r.toId === S.me).sort(byNew);
     const out = S.requests.filter(r => r.fromId === S.me).sort(byNew);
-    const shares = S.shares.filter(s => !s.requestId).sort(byNew).slice(0, 20);
-    const sec = (t, hint, rows, empty) => h("section", null, h("h2", { text: t }), hint ? h("p", { class: "muted", style: "margin:0 0 10px;font-size:13px", text: hint }) : null,
-      rows.length ? h("div", { class: "list" }, rows) : h("div", { class: "empty" }, h("p", { text: empty })));
     const accIn = S.access.filter(a => a.owner === S.me && a.status === "pending");
+    const mmCount = inc.filter(r => ["pending", "asking"].includes(r.status)).length + accIn.length;
+    const sub = (t, rows) => rows.length ? h("section", null, h("h3", { class: "sub-h", text: t }), h("div", { class: "list" }, rows)) : null;
     return h("div", { class: "inbox" },
-      accIn.length ? sec("열람 요청", "다른 주선자가 내 매물의 사진·원문을 보고 싶어해요. 승인하면 그 주선자는 자기 지인에게도 보낼 수 있어요.", accIn.map(accessRow), "") : null,
-      sec("지인 반응", "내가 보낸 링크에서 지인이 ‘소개 받고 싶어요’를 누른 사람이에요. 그 사람을 올린 주선자에게 바로 신청하세요.", picks.map(pickRow), "아직 반응이 없어요. 장부에서 사람을 ‘+ 담기’ 해서 지인에게 링크로 보내 보세요."),
-      sec("받은 신청", "내가 올린 사람에게 들어온 신청이에요. ‘물어보기’ 링크를 본인에게 보내면, 본인이 링크에서 답하는 순간 결과가 자동으로 반영돼요.", inc.map(incomingRow), "아직 받은 신청이 없어요."),
-      sec("보낸 신청", null, out.map(sentRow), "보낸 신청이 없어요."),
-      sec("내가 보낸 링크", null, shares.map(shareRow), "아직 보낸 링크가 없어요."));
+      h("section", null,
+        h("div", { class: "row", style: "justify-content:space-between;margin-bottom:6px" },
+          h("h2", { style: "margin:0", text: "링크별 신청" }),
+          pendingAll ? h("span", { class: "pill p-pending", text: `처리할 신청 ${pendingAll}` }) : null),
+        h("p", { class: "muted", style: "margin:0 0 12px;font-size:13px", text: "장부 리스트에서 매물을 담아 만든 링크마다, 링크로 들어온 사람이 신청한 매물이 따로 모여요." }),
+        links.length ? h("div", { class: "links" }, links.map(linkCard))
+          : h("div", { class: "empty" }, h("h3", { text: "아직 만든 링크가 없어요" }), h("p", { text: "장부 리스트에서 매물을 체크해 담고 ‘링크 만들기’를 누르세요." }),
+              h("button", { class: "btn primary", onclick: () => { S.tab = "all"; render(); } }, "장부 리스트로"))),
+      (inc.length || out.length || accIn.length) ? h("details", { class: "mm-msgs", open: mmCount > 0 },
+        h("summary", null, "주선자끼리 주고받은 요청", mmCount ? h("span", { class: "badge", style: "margin-left:8px", text: mmCount }) : null),
+        h("div", { style: "display:grid;gap:18px;margin-top:12px" },
+          sub("열람 요청", accIn.map(accessRow)),
+          sub("받은 연결 요청", inc.map(incomingRow)),
+          sub("보낸 연결 요청", out.map(sentRow)))) : null);
   }
 
   // ---------- overlay ----------
@@ -1224,7 +1336,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     } }, "링크 만들기");
     sheet(`링크 만들기 · ${people.length}명`, h("div", { style: "display:grid;gap:14px" },
       h("div", { class: "pics", style: "justify-content:flex-start" }, people.map(p => h("div", { class: "pic", title: title(p) }, p.photos[0] && photoUrl(p.photos[0]) ? h("img", { src: photoUrl(p.photos[0]), alt: "" }) : null))),
-      h("p", { class: "muted", style: "margin:0;font-size:13px", text: `${all.length > people.length ? `승인이 필요한 ${all.length - people.length}명은 빠졌어요. ` : ""}링크를 받은 지인은 가입 없이 보고 ‘소개 받고 싶어요’를 누를 수 있어요. 링크는 만든 뒤 2시간이 지나면 자동으로 닫히고, 사진에는 내 이름이 워터마크로 찍혀요.` }),
+      h("p", { class: "muted", style: "margin:0;font-size:13px", text: `${all.length > people.length ? `승인이 필요한 ${all.length - people.length}명은 빠졌어요. ` : ""}링크를 받은 지인은 가입 없이 보고 마음에 드는 매물을 ‘신청’할 수 있어요. 링크는 만든 뒤 2시간이 지나면 자동으로 닫히고, 사진에는 내 이름이 워터마크로 찍혀요.` }),
       h("div", { class: "field" }, h("label", { for: "sh-label", text: "받는 지인" }), label),
       h("div", { class: "field" }, h("label", { for: "sh-note", text: "한마디" }), note)),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
@@ -1232,9 +1344,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   }
   function shareResult(s, fresh) {
     const url = shareUrl(s.token);
-    const text = `[솔로 장부] ${s.label}에게 추천하는 분 ${s.profileIds.length}명이야!\n보고 마음에 드는 분 있으면 ‘소개 받고 싶어요’ 눌러줘
+    const text = `[솔로 장부] ${s.label}에게 추천하는 분 ${s.profileIds.length}명이야!\n보고 마음에 드는 분 있으면 ‘신청하기’ 눌러줘
 ⏰ 2시간 동안만 열려 (${fmtDate(s.expiresAt)}까지)\n${url}`;
-    copySheet(fresh ? "링크를 만들었어요" : "보낸 링크", text, h("div", { class: "notice", text: `아래 문구를 지인에게 카톡으로 보내세요. ${fmtDate(s.expiresAt)}에 링크가 닫혀요. 지인이 반응하면 신청함 ‘지인 반응’에 떠요.` }));
+    copySheet(fresh ? "링크를 만들었어요" : "보낸 링크", text, h("div", { class: "notice", text: `아래 문구를 지인에게 카톡으로 보내세요. ${fmtDate(s.expiresAt)}에 링크가 닫혀요. 지인이 신청한 매물은 신청함에 이 링크별로 모여요.` }));
   }
 
   // 소개 신청 (내 지인 → 상대 주선자)
@@ -1329,12 +1441,15 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v })))),
           actions));
     };
+    let myName = (() => { try { return localStorage.getItem("solo_viewer_name") || ""; } catch { return ""; } })() || (d.mode === "list" ? (d.label || "").split(" ").pop() : "");
+    const nameIn = h("input", { type: "text", id: "sv-name", placeholder: "내 이름 (주선자에게 보여요)", value: myName, oninput: e => { myName = e.target.value.trim(); try { localStorage.setItem("solo_viewer_name", myName); } catch {} } });
     const head = d.mode === "ask"
       ? h("header", { class: "share-head" }, h("h1", { text: "소개받고 싶다는 분이 있어요" }),
           h("p", { text: `${d.sharer}님이 보낸 링크예요. 아래 분이 ${d.target ? [d.target.birth_year && String(d.target.birth_year).slice(2) + "년생", d.target.job].filter(Boolean).join(" ") + "님을" : "당신을"} 소개받고 싶어해요.` }),
           d.request_note ? h("p", { class: "callout", text: `“${d.request_note}”` }) : null)
       : h("header", { class: "share-head" }, h("h1", { text: `${d.label || "지인"}님께 추천하는 분들` }),
-          h("p", { text: `${d.sharer}님이 보냈어요 · ${profs.length}명` }), timer,
+          h("p", { text: `${d.sharer}님이 보냈어요 · ${profs.length}명 · 마음에 드는 분을 ‘신청하기’ 해 주세요` }), timer,
+          h("div", { class: "field" }, h("label", { for: "sv-name", text: "내 이름" }), nameIn),
           d.note ? h("p", { class: "callout", text: `“${d.note}”` }) : null);
 
     const pickArea = (pid, current, ask) => {
@@ -1342,15 +1457,15 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const draw = cur => {
         const msg = h("input", { type: "text", placeholder: ask ? "한마디 (선택)" : "주선자에게 한마디 (선택)", "aria-label": "한마디" });
         const send = async kind => {
-          const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: pid, p_kind: kind, p_message: msg.value.trim() });
+          const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: pid, p_kind: kind, p_message: msg.value.trim(), p_name: myName });
           if (error) return toast(/expired/.test(error.message || "") ? "링크 기간이 끝났어요" : "전달하지 못했어요. 다시 눌러 주세요");
-          toast(kind === "want" ? `${d.sharer}님에게 전달했어요!` : "알겠어요. 전달했어요"); draw(kind);
+          toast(kind === "want" ? "신청했어요!" : "패스했어요"); draw(kind);
         };
         area.replaceChildren(...[
-          cur ? h("div", { class: "notice", style: cur === "want" ? "background:var(--ok-soft);color:var(--ok)" : "", text: cur === "want" ? (ask ? "좋다고 전했어요. 주선자가 연락처 교환을 도와줄 거예요." : `소개 원한다고 ${d.sharer}님에게 전했어요.`) : "패스했어요." }) : null,
+          cur ? h("div", { class: "notice", style: cur === "want" ? "background:var(--ok-soft);color:var(--ok)" : "", text: cur === "want" ? (ask ? "좋다고 전했어요. 주선자가 연락처 교환을 도와줄 거예요." : `신청했어요. ${d.sharer}님이 확인하고 연결해 줄 거예요.`) : "패스했어요." }) : null,
           !cur ? msg : null,
           h("div", { class: "row" },
-            h("button", { class: "btn primary", style: "flex:1;padding:12px", onclick: () => send("want") }, ask ? "좋아요, 소개 받을게요" : "소개 받고 싶어요"),
+            h("button", { class: "btn primary", style: "flex:1;padding:12px", onclick: () => send("want") }, ask ? "좋아요, 소개 받을게요" : cur === "want" ? "신청됨 ✓" : "이 분 신청하기"),
             h("button", { class: "btn", style: "padding:12px", onclick: () => send("pass") }, ask ? "이번엔 괜찮아요" : "패스"))].filter(Boolean));
       };
       draw(current); return area;
@@ -1382,7 +1497,6 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       sb.from("access_requests").select("*").order("created_at", { ascending: false }).limit(300),
     ]);
     S.access = ac.data || [];
-    S.dex = {}; [...(pr.data || [])].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")).forEach((r, i) => { S.dex[r.id] = i + 1; });
     S.shares = (shs.data || []).map(shareFromRow);
     S.picks = (pk.data || []).map(pickFromRow);
     if (pr.error) { fail(pr.error); return; }

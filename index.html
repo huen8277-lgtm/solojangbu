@@ -1027,7 +1027,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         ? h("dl", { class: "facts" }, rows.map(([k, v]) => h("div", null, h("dt", { text: k }), h("dd", { text: v || "—", style: v ? "" : "color:var(--muted)" }))))
         : h("p", { class: "muted", style: "font-size:13px", text: "붙여넣으면 여기에 자동 분류 결과가 보여요." }));
     }
-    ta.addEventListener("input", updPrev); updPrev();
+    ta.addEventListener("input", updPrev); ta.addEventListener("change", updPrev); ta.addEventListener("keyup", updPrev); updPrev();
 
     const pics = h("div", { class: "pics" });
     const fileIn = h("input", { type: "file", accept: "image/*", multiple: true, hidden: true, id: "ed-file", onchange: e => addFiles(e.target.files) });
@@ -1069,7 +1069,20 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     drop.addEventListener("dragover", e => { e.preventDefault(); if (dragFrom === null) drop.classList.add("over"); });
     drop.addEventListener("dragleave", () => drop.classList.remove("over"));
     drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (dragFrom === null) addFiles(e.dataTransfer.files); });
-    const onPaste = e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.some(f => f.type.startsWith("image/"))) { e.preventDefault(); addFiles(fs); } };
+    // 붙여넣기: 글자 칸에 붙이면 글은 그대로 들어가고(카톡은 글 복사 때 그림도 같이 실어 보내는 경우가 있어요),
+    // 글자 칸 밖이거나 글자가 없을 때만 사진으로 처리
+    const onPaste = e => {
+      const cd = e.clipboardData; if (!cd) return;
+      const imgs = [...(cd.files || [])].filter(f => f.type.startsWith("image/"));
+      const text = (cd.getData("text/plain") || "").trim();
+      const inText = e.target && (e.target.tagName === "TEXTAREA" || (e.target.tagName === "INPUT" && e.target.type === "text"));
+      if (inText && text) {
+        if (e.target === ta) setTimeout(updPrev, 0);
+        if (imgs.length) toast("글만 붙였어요. 사진은 글 칸 밖을 한 번 누르고 다시 붙여넣어 주세요");
+        return;
+      }
+      if (imgs.length) { e.preventDefault(); addFiles(imgs); }
+    };
     document.addEventListener("paste", onPaste); onClose = () => document.removeEventListener("paste", onPaste);
 
     const consent = h("input", { type: "checkbox", id: "ed-consent", checked: !!p.consentAt });

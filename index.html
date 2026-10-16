@@ -183,8 +183,14 @@ img { max-width: 100%; }
 .wm span { transform: rotate(-24deg); font-size: 12px; font-weight: 600; color: rgba(255,255,255,.34); text-shadow: 0 0 2px rgba(0,0,0,.18); white-space: pre; line-height: 9; text-align: center; letter-spacing: .02em; user-select: none; }
 .photo img, .gallery img, .pic img, .thumb img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
 .card { cursor: pointer; }
-.mm-bar { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; scrollbar-width: none; }
-.mm-bar::-webkit-scrollbar { display: none; }
+.mm-wrap { position: relative; margin-top: 14px; }
+.mm-bar { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 0 0 8px; scrollbar-width: thin; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.mm-bar::-webkit-scrollbar { height: 6px; }
+.mm-bar::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.mm-bar.dragging { scroll-behavior: auto; cursor: grabbing; }
+.mm-arrow { position: absolute; top: 0; bottom: 8px; width: 40px; border: 0; z-index: 2; font-size: 22px; color: var(--ink); cursor: pointer; }
+.mm-arrow.left { left: 0; background: linear-gradient(90deg, var(--bg) 55%, transparent); text-align: left; padding-left: 4px; }
+.mm-arrow.right { right: 0; background: linear-gradient(270deg, var(--bg) 55%, transparent); text-align: right; padding-right: 4px; }
 .mm-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 12px; font-size: 14px; color: var(--muted); }
 .mm-tab span { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .mm-tab .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -320,7 +326,11 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       <button class="btn ghost" id="btn-logout" style="padding:4px 10px">로그아웃</button>
     </div>
 
-    <nav class="mm-bar" id="mm-bar" aria-label="주선자별 보기"></nav>
+    <div class="mm-wrap" id="mm-wrap">
+      <button class="mm-arrow left" id="mm-left" aria-label="왼쪽으로" hidden>‹</button>
+      <nav class="mm-bar" id="mm-bar" aria-label="주선자별 보기"></nav>
+      <button class="mm-arrow right" id="mm-right" aria-label="오른쪽으로" hidden>›</button>
+    </div>
     <section class="filters" id="filters">
       <div class="chips" role="group" aria-label="성별">
         <button class="chip" data-g="all" aria-pressed="true">전체</button>
@@ -802,14 +812,17 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const counts = {}; S.profiles.forEach(p => { const n = mmName(p); counts[n] = (counts[n] || 0) + 1; });
     const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
     if (S.mm && !counts[S.mm]) S.mm = "";
-    const mmBar = $("#mm-bar"); mmBar.hidden = S.tab === "inbox";
+    const mmBar = $("#mm-bar"); $("#mm-wrap").hidden = S.tab === "inbox";
     const myCount = S.profiles.filter(isMyMm).length;
     const setView = (mm, mine) => { if (mine && !S.mine) S.s = "all"; S.mm = mm; S.mine = mine; S.delSel.clear(); S.delMode = false; render(); };
+    const keepLeft = mmBar.scrollLeft;
     mmBar.replaceChildren(
       h("button", { class: "mm-tab", "aria-pressed": !S.mm && !S.mine, onclick: () => setView("", false) }, "전체", h("span", { text: S.profiles.length })),
       h("button", { class: "mm-tab mine", "aria-pressed": S.mine, onclick: () => setView("", true) }, "내 매물", h("span", { text: myCount })),
       ...names.map(n => h("button", { class: "mm-tab", "aria-pressed": S.mm === n && !S.mine, onclick: () => setView(n, false) },
-        h("i", { class: "dot", style: `background:${mmColor(n)}` }), n, h("span", { text: counts[n] }))));
+        h("i", { class: "dot", style: `background:${mmColor(n)}` }), n, h("span", { text: counts[n] }))));    mmBar.style.scrollBehavior = "auto"; mmBar.scrollLeft = keepLeft; mmBar.style.scrollBehavior = "";
+    requestAnimationFrame(() => { updMmArrows(); const on = mmBar.querySelector('[aria-pressed="true"]'); if (on && (on.offsetLeft < mmBar.scrollLeft || on.offsetLeft + on.offsetWidth > mmBar.scrollLeft + mmBar.clientWidth)) mmBar.scrollLeft = on.offsetLeft - 40; });
+
     const n = todo(); const bd = $("#inbox-badge"); bd.hidden = !n; bd.textContent = n;
     // 보낼 목록 바
     const bar = $("#basket"); const ids = [...S.basket].filter(id => S.profiles.some(p => p.id === id));
@@ -1013,7 +1026,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
 
   // ---------- overlay ----------
   let onClose = null;
+  let sheetLock = false;   // 입력 중인 창(프로필 등록 등)은 바깥 클릭·Esc로 안 닫히게
   function sheet(titleText, body, foot) {
+    sheetLock = false;
     const ov = $("#overlay");
     const sh = h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": titleText },
       h("div", { class: "sheet-head" }, h("h2", { text: titleText }), h("button", { class: "x", "aria-label": "닫기", onclick: closeSheet }, "×")),
@@ -1022,8 +1037,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     return sh;
   }
   function closeSheet() { $("#overlay").hidden = true; $("#overlay").replaceChildren(); document.body.style.overflow = ""; if (onClose) { const f = onClose; onClose = null; f(); } }
-  $("#overlay").addEventListener("click", e => { if (e.target.id === "overlay") closeSheet(); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#overlay").hidden) closeSheet(); });
+  $("#overlay").addEventListener("click", e => { if (e.target.id === "overlay" && !sheetLock) closeSheet(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#overlay").hidden && !sheetLock) closeSheet(); });
 
   // ---------- 상세 ----------
   function openDetail(id) {
@@ -1279,6 +1294,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         h("label", { class: "consent", for: "ed-consent" }, consent,
           h("span", null, h("b", null, "본인 동의를 받았어요. "), "이 사람에게 ‘솔로 장부 멤버들에게 사진과 소개 정보가 공유되고, 원하면 언제든 삭제된다’는 걸 알렸어요. 실명·연락처·인스타 아이디는 적지 마세요."))),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), save]);
+    sheetLock = true;
     setTimeout(() => (existing ? nick : ta).focus(), 30);
   }
 
@@ -1492,6 +1508,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       fileIn, ta, results, trayBox,
       h("label", { class: "consent", for: "imp-consent" }, consent, h("span", null, h("b", null, "선택한 사람 모두에게 동의를 받았어요. "), "카톡방에 올라온 사람이라도 이 장부에 올라간다는 걸 본인이 알고 있어야 해요."))),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+    sheetLock = true;
     const sh = $("#overlay .sheet-body");
     sh.addEventListener("dragover", e => e.preventDefault());
     sh.addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
@@ -1606,6 +1623,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       h("div", { class: "field" }, h("label", { for: "sh-label", text: "받는 지인" }), label),
       h("div", { class: "field" }, h("label", { for: "sh-note", text: "한마디" }), note)),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+    sheetLock = true;
     setTimeout(() => label.focus(), 30);
   }
   function shareResult(s, fresh) {
@@ -1640,6 +1658,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         h("div", { class: "field" }, h("label", { for: "rq-mine", text: "장부에 등록된 내 지인이면 선택" }), sel, h("span", { class: "hint", text: "선택하면 상대가 사진과 프로필을 바로 볼 수 있어요" }))),
       h("div", { class: "field" }, h("label", { for: "rq-note", text: `${mmName(p)}님에게 남길 말` }), note)),
       [h("button", { class: "btn", onclick: closeSheet }, "취소"), go]);
+    sheetLock = true;
   }
 
   // 받은 신청 → 본인(매물)에게 물어보는 링크
@@ -1951,6 +1970,24 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   $("#age-from").addEventListener("change", onAge);
   $("#sort").addEventListener("change", e => { S.sort = e.target.value; render(); });
   $("#age-to").addEventListener("change", onAge);
+  // 주선자 탭 가로 스크롤: 화살표 · 마우스 휠 · 끌어서 넘기기
+  function updMmArrows() {
+    const bar = $("#mm-bar"); const max = bar.scrollWidth - bar.clientWidth;
+    $("#mm-left").hidden = bar.scrollLeft <= 4; $("#mm-right").hidden = bar.scrollLeft >= max - 4;
+  }
+  (() => {
+    const bar = $("#mm-bar");
+    $("#mm-left").addEventListener("click", () => { bar.scrollLeft -= bar.clientWidth * 0.7; });
+    $("#mm-right").addEventListener("click", () => { bar.scrollLeft += bar.clientWidth * 0.7; });
+    bar.addEventListener("scroll", updMmArrows, { passive: true });
+    window.addEventListener("resize", updMmArrows);
+    bar.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && bar.scrollWidth > bar.clientWidth) { e.preventDefault(); bar.style.scrollBehavior = "auto"; bar.scrollLeft += e.deltaY; bar.style.scrollBehavior = ""; } }, { passive: false });
+    let down = null, moved = false;
+    bar.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") return; down = { x: e.clientX, left: bar.scrollLeft }; moved = false; });
+    window.addEventListener("pointermove", e => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 5) { moved = true; bar.classList.add("dragging"); bar.scrollLeft = down.left - dx; } });
+    window.addEventListener("pointerup", () => { down = null; setTimeout(() => bar.classList.remove("dragging"), 0); });
+    bar.addEventListener("click", e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  })();
   $("#btn-delmode").addEventListener("click", () => { S.delMode = true; S.delSel.clear(); render(); });
   $("#btn-addall").addEventListener("click", () => {
     const ids = filtered().filter(cartable).map(p => p.id);

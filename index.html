@@ -214,6 +214,12 @@ img { max-width: 100%; }
 .pic-move { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; }
 .pic-move button { position: static; width: 26px; height: 24px; border: 0; border-radius: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 16px; line-height: 1; padding: 0; }
 .pic-move button:disabled { opacity: 0; }
+.wrow { grid-template-columns: minmax(0, 1fr) auto; }
+.wrow.done { opacity: .55; }
+.wact { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 10px; border-left: 1px solid var(--line); }
+.wact:empty { display: none; }
+.wact .btn { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+@media (max-width: 480px) { .wrow { grid-template-columns: minmax(0, 1fr); } .wact { flex-direction: row; border-left: 0; border-top: 1px solid var(--line); justify-content: flex-end; } }
 .ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
 .ldel:hover { color: var(--accent); }
 .ldel.armed { background: var(--accent); color: var(--on-accent); }
@@ -909,22 +915,23 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const nameOf = id => { const p = S.profiles.find(x => x.id === id); return p ? title(p) : "삭제된 매물"; };
     const wantRow = k => {
       const p = S.profiles.find(x => x.id === k.profileId);
-      return h("div", { class: "pick" + (k.handled ? " done" : "") },
-        h("div", { class: "thumb", style: "width:48px;height:60px" }, p && p.photos[0] && photoUrl(p.photos[0]) ? h("img", { src: photoUrl(p.photos[0]), alt: "" }) : null),
-        h("div", { class: "info" },
-          h("b", { text: p ? `${title(p)} · ${metaLine(p)}` : "삭제된 매물" }),
-          h("span", { class: "note", text: `${k.viewerName || s.label || "지인"}님 신청 · 주선 ${p ? mmName(p) : "-"} · ${fmtDate(k.createdAt)}` }),
-          k.message ? h("span", { class: "note", text: `“${k.message}”` }) : null),
-        h("div", { class: "act" },
-          k.handled ? h("span", { class: "pill p-accepted", text: "처리 완료" }) : [
-            p && !isMine(p) && (p.status || "solo") === "solo" ? h("button", { class: "btn primary", onclick: () => openRequest(p, { friendName: k.viewerName || s.label, note: k.message, pick: k }) }, `${mmName(p)}님에게 연결 요청`) : null,
-            p && isMine(p) ? h("span", { class: "muted", style: "font-size:12px", text: "내 매물 · 직접 연결" }) : null,
-            h("button", { class: "btn ghost", onclick: async () => { await sb.from("share_picks").update({ handled: true }).eq("id", k.id); refresh(); } }, "처리 완료")]));
+      const src = p && p.photos[0] && (p.full !== false ? photoUrl(p.photos[0]) : photoUrl(blurOf(p.photos[0])));
+      const st = p ? (p.status || "solo") : "closed";
+      return h("div", { class: "lrow wrow" + (k.handled ? " done" : "") },
+        h("button", { class: "lmain", style: "padding-left:12px", disabled: !p, onclick: () => p && openDetail(p.id), "aria-label": p ? `${title(p)} 상세 보기` : "삭제된 매물" },
+          h("div", { class: "lthumb" }, src ? h("img", { src, alt: "", class: p.full !== false ? "" : "blurred" }) : h("span", { text: p && p.gender === "M" ? "男" : "女" })),
+          h("div", { class: "linfo" },
+            h("div", { class: "lname" }, p ? [h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p)] : "삭제된 매물"),
+            h("div", { class: "lmeta", text: p ? [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") : "" }),
+            h("div", { class: "mm" }, h("b", { text: `${k.viewerName || s.label || "지인"}님 신청` }), ` · ${fmtDate(k.createdAt)}`, p ? ` · 주선 ${mmName(p)}` : ""),
+            k.message ? h("div", { class: "lmeta", text: `“${k.message}”` }) : null),
+          p ? h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: k.handled ? "처리 완료" : STATUS[st] }) : h("span")),
+        h("div", { class: "wact" },
+          !k.handled && p && !isMyMm(p) && !isMine(p) && st === "solo" ? h("button", { class: "btn primary", onclick: () => openRequest(p, { friendName: k.viewerName || s.label, note: k.message, pick: k }) }, "연결 요청") : null,
+          !k.handled ? h("button", { class: "btn ghost", onclick: async () => { await sb.from("share_picks").update({ handled: true }).eq("id", k.id); refresh(); } }, "처리 완료") : null));
     };
     const body = h("div", { class: "link-body" },
-      wants.length ? h("div", { class: "picks" }, wants.map(wantRow)) : h("p", { class: "muted", style: "margin:0;font-size:13px", text: left ? "아직 신청한 매물이 없어요." : "신청 없이 링크가 닫혔어요." }),
-      passIds.size ? h("p", { class: "muted", style: "margin:0;font-size:12px", text: `패스: ${[...passIds].map(nameOf).join(", ")}` }) : null,
-      quiet.length ? h("p", { class: "muted", style: "margin:0;font-size:12px", text: `반응 없음: ${quiet.map(nameOf).join(", ")}` }) : null);
+      wants.length ? h("div", { class: "ledger" }, wants.map(wantRow)) : h("p", { class: "muted", style: "margin:0;font-size:13px", text: left ? "아직 신청이 없어요." : "신청 없이 링크가 닫혔어요." }));
     body.hidden = !open;
     const pending = wants.filter(k => !k.handled).length;
     return h("article", { class: "link-card" + (left ? "" : " closed") },

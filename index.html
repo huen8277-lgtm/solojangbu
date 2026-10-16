@@ -380,21 +380,41 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
 
   // ---------- 카톡 양식 파서 ----------
   const KEYMAP = [
-    ["gender", /성별/], ["age", /나이|년생|출생|생년/], ["height", /^키$|^신장|^키\(/],
-    ["job", /하는일|직업|직장|^일$|회사/], ["region", /사는곳|거주|지역|사는동네|사는데/],
-    ["mbti", /mbti/i], ["hobby", /취미|관심사/], ["smoke", /흡연|종교|음주/], ["wants", /원하는|이상형|바라는|희망/],
+    ["gender", /성별/], ["age", /나이|년생|출생|생년|연령/], ["height", /^키$|^신장|^키\(/],
+    ["job", /하는일|직업|직장|^일$|회사|직무|업무/], ["region", /사는곳|거주|지역|사는동네|사는데|동네|주소/],
+    ["mbti", /mbti/i], ["hobby", /취미|관심사|특기/], ["smoke", /흡연|종교|음주|술|담배/], ["wants", /원하는|이상형|바라는|희망|조건|선호/],
   ];
+  // 콜론 없이 "키 165" 처럼 쓴 줄을 알아보기 위한 항목 이름들 (긴 것부터)
+  const BARE_KEYS = ["하는 일", "하는일", "사는 곳", "사는곳", "거주지", "거주", "지역", "나이", "출생", "생년", "성별", "신장", "키",
+    "직업", "직장", "회사", "직무", "MBTI", "mbti", "엠비티아이", "취미", "관심사", "흡연", "종교", "음주", "원하는 점", "원하는점", "원하는 사람", "이상형", "선호", "조건"];
+  const bareRe = new RegExp("^(?:\\d+\\s*[.)]\\s*|[-•·*▶︎>]\\s*)?(" + BARE_KEYS.map(k => k.replace(/\s/g, "\\s?")).join("|") + ")\\s+(.+)$", "i");
   function keyOf(k) { const n = norm(k); for (const [key, re] of KEYMAP) if (re.test(n)) return key; return null; }
+  // 항목 이름 없이 쓴 줄을 내용으로 짐작
+  function guessKeyOfLine(v) {
+    if (/(까지|이상|이하|연상|연하|선호|원해|원함|좋겠|였으면|이면\s*좋|가능)/.test(v) && /(년생|살|세|키|cm|연상|연하|나이|사람|분)/.test(v)) return "원하는 점";
+    if (/^\s*\d{2,4}\s*년\s*생\s*$|^\s*(19|20)?\d{2}\s*년생/.test(v)) return "나이";
+    if (/^\s*1\d{2}\s*(cm|센티)?\s*$/i.test(v)) return "키";
+    if (/^\s*[EI][NS][TF][JP]\s*$/i.test(v)) return "MBTI";
+    return null;
+  }
   function parseForm(text) {
-    const fields = []; let cur = null;
+    const fields = []; let cur = null; let curOpen = false;   // curOpen: 값 없이 시작한 항목(아래 줄들이 그 값)
     for (const raw of (text || "").split(/\r?\n/)) {
       const line = raw.trim(); if (!line) continue;
       let m = line.match(/^(?:\d+\s*[.)]\s*|[-•·*▶︎>]\s*)?([^:：]{1,20}?)\s*[:：]\s*(.*)$/);
-      if (m && !/^https?$/i.test(m[1].trim())) { cur = { k: m[1].trim(), v: m[2].trim() }; fields.push(cur); continue; }
+      if (m && !/^https?$/i.test(m[1].trim())) { cur = { k: m[1].trim(), v: m[2].trim() }; curOpen = !cur.v; fields.push(cur); continue; }
+      m = line.match(bareRe);
+      if (m) { cur = { k: m[1].replace(/\s+/g, " ").trim(), v: m[2].trim() }; curOpen = false; fields.push(cur); continue; }
       m = line.match(/^\d+\s*[.)]\s*(.{1,20})$/);
-      if (m) { cur = { k: m[1].trim(), v: "" }; fields.push(cur); continue; }
+      if (m) { cur = { k: m[1].trim(), v: "" }; curOpen = true; fields.push(cur); continue; }
+      const isBullet = /^[-•·*]/.test(line);
       const b = line.replace(/^[-•·*]\s*/, "");
-      if (cur) cur.v = cur.v ? cur.v + "\n" + b : b; else fields.push(cur = { k: "메모", v: b });
+      if (cur && (curOpen || isBullet)) { cur.v = cur.v ? cur.v + "\n" + b : b; continue; }
+      const gk = guessKeyOfLine(b);
+      if (gk) { const ex = fields.find(f => f.k === gk); if (ex) ex.v += "\n" + b; else fields.push(cur = { k: gk, v: b }); curOpen = false; continue; }
+      const memo = fields.find(f => f.k === "기타");
+      if (memo) memo.v += "\n" + b; else fields.push(cur = { k: "기타", v: b });
+      curOpen = false;
     }
     const out = { fields: fields.filter(f => f.v) };
     for (const f of out.fields) { const key = keyOf(f.k); if (key && !out[key]) out[key] = f.v; }
@@ -406,7 +426,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       if (y > 1950 && y <= THIS_YEAR) out.birthYear = y;
     }
     if (out.height) { const m = out.height.match(/(1\d{2})/); if (m) out.heightCm = +m[1]; }
+    if (!out.heightCm) { const m = (text || "").match(/(?:^|[\s/,·])(1[4-9]\d)\s*(?:cm|센티)?(?=$|[\s/,·])/im); if (m) out.heightCm = +m[1]; }
     if (out.mbti) { const m = out.mbti.match(/[EI][NS][TF][JP]/i); if (m) out.mbtiCode = m[0].toUpperCase(); }
+    if (!out.mbtiCode) { const m = (text || "").match(/\b([EI][NS][TF][JP])\b/i); if (m) out.mbtiCode = m[1].toUpperCase(); }
     if (out.gender) out.g = /여/.test(out.gender) ? "F" : /남/.test(out.gender) ? "M" : null;
     out.score = ["age","height","job","region","mbti","hobby","wants"].filter(k => out[k]).length;
     return out;

@@ -180,7 +180,7 @@ img { max-width: 100%; }
 [hidden] { display: none !important; }
 /* 사진 워터마크: 보는 사람 이름이 찍혀 캡처 유출을 막는 용도 */
 .wm { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: grid; place-items: center; }
-.wm span { transform: rotate(-24deg); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); text-shadow: 0 0 2px rgba(0,0,0,.5); white-space: pre; line-height: 3.2; text-align: center; user-select: none; }
+.wm span { transform: rotate(-24deg); font-size: 12px; font-weight: 600; color: rgba(255,255,255,.34); text-shadow: 0 0 2px rgba(0,0,0,.18); white-space: pre; line-height: 9; text-align: center; letter-spacing: .02em; user-select: none; }
 .photo img, .gallery img, .pic img, .thumb img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
 .card { cursor: pointer; }
 .mm-bar { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; scrollbar-width: none; }
@@ -383,7 +383,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   const photoUrl = path => S.urls[path] || "";
   const blurOf = path => path.replace(/\/([^/]+)$/, "/blur/$1");
   const lockMark = () => h("div", { class: "lock" }, h("span", { text: "주선자 승인 후 공개" }));
-  const wm = () => { const t = `${S.myName || ""} ${S.phoneTail ? "·" + S.phoneTail : ""}  솔로 장부`; return h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(6).fill(t + "     " + t).join("\n") })); };
+  const wm = () => { const t = `${S.myName || ""} ${S.phoneTail ? "·" + S.phoneTail : ""}  솔로 장부`; return h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(3).fill(t).join("\n") })); };
   document.addEventListener("contextmenu", e => { if (e.target.tagName === "IMG") e.preventDefault(); });
 
   // ---------- 카톡 양식 파서 ----------
@@ -1646,7 +1646,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       timer.textContent = `⏰ ${hh ? hh + "시간 " : ""}${mm}분 ${String(ss).padStart(2, "0")}초 뒤 닫혀요`;
     };
     const tickT = setInterval(tick, 1000);
-    const mark = () => h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(6).fill(`${d.sharer}님 공유 · 외부 유출 금지     ${d.sharer}님 공유`).join("\n") }));
+    const mark = () => h("div", { class: "wm", "aria-hidden": "true" }, h("span", { text: Array(3).fill(`${d.sharer}님 공유 · 외부 유출 금지`).join("\n") }));
     const pcard = (p, actions) => {
       const ph = (p.photos || []).map(x => photoUrl(x)).filter(Boolean);
       const r = { birthYear: p.birth_year, heightCm: p.height_cm, mbtiCode: p.mbti };

@@ -203,6 +203,17 @@ img { max-width: 100%; }
 .del-mode .lcheck input { accent-color: var(--accent); }
 .mm-tab.mine { border-style: dashed; }
 .mm-tab.mine[aria-pressed="true"] { border-style: solid; }
+.pic { cursor: grab; }
+.pic.cover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pic.dragging { opacity: .4; }
+.pic.drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.pic .pic-x { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; line-height: 1; }
+.cover-tag, .num-tag { position: absolute; top: 3px; left: 3px; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 5px; }
+.cover-tag { background: var(--accent); color: var(--on-accent); }
+.num-tag { background: rgba(0,0,0,.55); color: #fff; }
+.pic-move { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; }
+.pic-move button { position: static; width: 26px; height: 24px; border: 0; border-radius: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 16px; line-height: 1; padding: 0; }
+.pic-move button:disabled { opacity: 0; }
 .ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
 .ldel:hover { color: var(--accent); }
 .ldel.armed { background: var(--accent); color: var(--on-accent); }
@@ -970,8 +981,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     if (error) throw error;
     // 다른 주선자에게 보여줄 흐린 사진 (작게 줄여 강하게 흐림)
     try { const bl = await makeBlur(b); await sb.storage.from("photos").upload(blurOf(path), bl, { contentType: "image/jpeg", upsert: true }); } catch (e) { console.warn("blur", e); }
-    const { data } = await sb.storage.from("photos").createSignedUrl(path, 60 * 60 * 6);
-    if (data) S.urls[path] = data.signedUrl;
+    // 방금 올린 사진은 아직 어느 매물에도 연결 전이라 서버 주소를 못 받을 수 있어요 → 내 기기의 사진으로 바로 미리보기
+    S.urls[path] = URL.createObjectURL(b);
     return path;
   }
   async function makeBlur(blob) {
@@ -1021,10 +1032,29 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const pics = h("div", { class: "pics" });
     const fileIn = h("input", { type: "file", accept: "image/*", multiple: true, hidden: true, id: "ed-file", onchange: e => addFiles(e.target.files) });
     const drop = h("div", { class: "drop" }, pics,
+      h("div", { class: "muted", style: "font-size:12px" }, "첫 번째 사진이 대표 사진이에요. 끌어서 옮기거나 ‹ › 로 순서를 바꿀 수 있어요."),
       h("div", null, "사진을 끌어다 놓거나, 카톡에서 사진 복사 후 ", h("b", null, "Ctrl/⌘+V"), " · ", h("button", { type: "button", class: "btn", style: "padding:4px 10px", onclick: () => fileIn.click() }, "파일 선택")), fileIn);
+    let dragFrom = null;
+    const move = (from, to) => { if (to < 0 || to >= st.photos.length || from === to) return; const [x] = st.photos.splice(from, 1); st.photos.splice(to, 0, x); drawPics(); };
     function drawPics() {
-      pics.replaceChildren(...st.photos.map((id, i) => h("div", { class: "pic" }, h("img", { src: st.temp[id] || photoUrl(id), alt: "" }),
-        id.startsWith("tmp:") ? h("div", { class: "up" }, "올리는 중") : h("button", { type: "button", "aria-label": "사진 빼기", onclick: () => { st.photos.splice(i, 1); drawPics(); } }, "×"))));
+      pics.replaceChildren(...st.photos.map((id, i) => {
+        const src = st.temp[id] || photoUrl(id);
+        const uploading = id.startsWith("tmp:");
+        const el = h("div", { class: "pic" + (i === 0 ? " cover" : ""), draggable: uploading ? "false" : "true", title: "끌어서 순서 바꾸기" },
+          src ? h("img", { src, alt: `사진 ${i + 1}`, draggable: "false" }) : h("div", { class: "up" }, "미리보기 없음"),
+          i === 0 ? h("span", { class: "cover-tag", text: "대표" }) : h("span", { class: "num-tag", text: i + 1 }),
+          uploading ? h("div", { class: "up" }, "올리는 중")
+            : [h("button", { type: "button", class: "pic-x", "aria-label": "사진 빼기", onclick: () => { st.photos.splice(i, 1); drawPics(); } }, "×"),
+               h("div", { class: "pic-move" },
+                 h("button", { type: "button", "aria-label": "앞으로", disabled: i === 0, onclick: () => move(i, i - 1) }, "‹"),
+                 h("button", { type: "button", "aria-label": "뒤로", disabled: i === st.photos.length - 1, onclick: () => move(i, i + 1) }, "›"))]);
+        el.addEventListener("dragstart", e => { dragFrom = i; el.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "reorder"); });
+        el.addEventListener("dragend", () => { dragFrom = null; el.classList.remove("dragging"); });
+        el.addEventListener("dragover", e => { if (dragFrom !== null) { e.preventDefault(); e.stopPropagation(); el.classList.add("drop-target"); } });
+        el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+        el.addEventListener("drop", e => { if (dragFrom === null) return; e.preventDefault(); e.stopPropagation(); const f = dragFrom; dragFrom = null; move(f, i); });
+        return el;
+      }));
     }
     drawPics();
     async function addFiles(files) {
@@ -1036,9 +1066,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         finally { URL.revokeObjectURL(st.temp[key]); st.uploading--; drawPics(); }
       }
     }
-    drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragover", e => { e.preventDefault(); if (dragFrom === null) drop.classList.add("over"); });
     drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-    drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+    drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (dragFrom === null) addFiles(e.dataTransfer.files); });
     const onPaste = e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.some(f => f.type.startsWith("image/"))) { e.preventDefault(); addFiles(fs); } };
     document.addEventListener("paste", onPaste); onClose = () => document.removeEventListener("paste", onPaste);
 

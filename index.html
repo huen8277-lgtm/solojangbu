@@ -220,6 +220,10 @@ img { max-width: 100%; }
 .wact:empty { display: none; }
 .wact .btn { padding: 6px 10px; font-size: 13px; white-space: nowrap; }
 @media (max-width: 480px) { .wrow { grid-template-columns: minmax(0, 1fr); } .wact { flex-direction: row; border-left: 0; border-top: 1px solid var(--line); justify-content: flex-end; } }
+.age-range { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.age-range select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 8px; font-size: 13px; max-width: 130px; }
+.age-range.on select:not(#sort) { border-color: var(--ink); font-weight: 600; }
+.age-range #sort { margin-left: 6px; }
 .ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
 .ldel:hover { color: var(--accent); }
 .ldel.armed { background: var(--accent); color: var(--on-accent); }
@@ -323,6 +327,17 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         <button class="chip" data-s="closed" aria-pressed="false">마감</button>
         <button class="chip" data-s="all" aria-pressed="false">모두</button>
       </div>
+      <div class="age-range" role="group" aria-label="나이">
+        <span class="lbl">나이</span>
+        <select id="age-from" aria-label="출생년도부터"></select>
+        <span class="muted">~</span>
+        <select id="age-to" aria-label="출생년도까지"></select>
+        <select id="sort" aria-label="정렬">
+          <option value="new">최신 등록순</option>
+          <option value="young">나이 어린순</option>
+          <option value="old">나이 많은순</option>
+        </select>
+      </div>
       <div class="search">
         <input type="text" id="q" placeholder="직업, 지역, MBTI, 취미 검색" aria-label="검색">
       </div>
@@ -361,7 +376,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   // ---------- state ----------
   const S = {
     session: null, me: null, isAdmin: false,
-    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {}, openLinks: new Set(), mine: false, delMode: false, delSel: new Set(),
+    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {}, openLinks: new Set(), mine: false, delMode: false, delSel: new Set(), ageFrom: null, ageTo: null, sort: "new",
     tab: "all", g: "all", s: "solo", q: "", mm: "", loaded: false,
   };
   const STATUS = { solo: "소개팅 가능", meeting: "진행중", closed: "마감" };
@@ -651,9 +666,21 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       if (S.s !== "all" && (p.status || "solo") !== S.s) return false;
       if (S.mm && mmName(p) !== S.mm) return false;
       if (S.mine && !isMyMm(p)) return false;
+      if (S.ageFrom || S.ageTo) {
+        if (!p.birthYear) return false;
+        if (S.ageFrom && p.birthYear < S.ageFrom) return false;
+        if (S.ageTo && p.birthYear > S.ageTo) return false;
+      }
       if (q && !norm([p.nickname, p.raw, mmName(p)].join(" ")).includes(q)) return false;
       return true;
-    }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    }).sort((a, b) => {
+      const byNewest = (b.createdAt || "").localeCompare(a.createdAt || "");
+      if (S.sort === "new") return byNewest;
+      // 나이 모르는 매물은 맨 뒤로
+      if (!a.birthYear || !b.birthYear) return (!a.birthYear) - (!b.birthYear) || byNewest;
+      const d = S.sort === "young" ? b.birthYear - a.birthYear : a.birthYear - b.birthYear;
+      return d || byNewest;
+    });
   }
   function card(p) {
     const st = p.status || "solo";
@@ -759,6 +786,12 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     $("#filters").hidden = S.tab === "inbox";
     $("#me-name").textContent = (S.names[S.me] || S.myName || "") + (S.isAdmin ? " · 관리자" : "");
     $("#btn-admin").hidden = !S.isAdmin;
+    // 나이(출생년도) 범위 선택지: 장부에 있는 출생년도 기준
+    const years = [...new Set(S.profiles.map(p => p.birthYear).filter(Boolean))].sort((a, b) => a - b);
+    const yLabel = y => `${String(y).slice(2)}년생 (${THIS_YEAR - y + 1}살)`;
+    const fillAge = (sel, val, first) => sel.replaceChildren(h("option", { value: "" }, first), ...years.map(y => h("option", { value: y, selected: y === val }, yLabel(y))));
+    fillAge($("#age-from"), S.ageFrom, "전체"); fillAge($("#age-to"), S.ageTo, "전체");
+    $("#age-from").closest(".age-range").classList.toggle("on", !!(S.ageFrom || S.ageTo));
     // 주선자 카테고리
     const counts = {}; S.profiles.forEach(p => { const n = mmName(p); counts[n] = (counts[n] || 0) + 1; });
     const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
@@ -1836,6 +1869,15 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   document.querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => { S.g = b.dataset.g; render(); }));
   document.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => { S.s = b.dataset.s; render(); }));
   $("#q").addEventListener("input", e => { S.q = e.target.value; render(); });
+  // 나이 범위: 부터=나이 많은 쪽(출생년도 작은 값), 까지=어린 쪽. 거꾸로 고르면 자동으로 맞바꿔요.
+  const onAge = () => {
+    let a = +$("#age-from").value || null, b = +$("#age-to").value || null;
+    if (a && b && a > b) [a, b] = [b, a];
+    S.ageFrom = a; S.ageTo = b; render();
+  };
+  $("#age-from").addEventListener("change", onAge);
+  $("#sort").addEventListener("change", e => { S.sort = e.target.value; render(); });
+  $("#age-to").addEventListener("change", onAge);
   $("#btn-delmode").addEventListener("click", () => { S.delMode = true; S.delSel.clear(); render(); });
   $("#btn-addall").addEventListener("click", () => {
     const ids = filtered().filter(cartable).map(p => p.id);

@@ -430,6 +430,38 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     if (out.mbti) { const m = out.mbti.match(/[EI][NS][TF][JP]/i); if (m) out.mbtiCode = m[0].toUpperCase(); }
     if (!out.mbtiCode) { const m = (text || "").match(/\b([EI][NS][TF][JP])\b/i); if (m) out.mbtiCode = m[1].toUpperCase(); }
     if (out.gender) out.g = /여/.test(out.gender) ? "F" : /남/.test(out.gender) ? "M" : null;
+    // 지역: "경기도 광주/회사 : 성수" → 거주 + 직장 위치, "서울대입구 거주" → "서울대입구"
+    if (out.region) {
+      let home = out.region.split("\n")[0], work = "";
+      const m = home.match(/^(.*?)\s*[\/,·|]\s*(?:회사|직장|근무지?|출근)\s*[:：]?\s*(.+)$/);
+      if (m) { home = m[1]; work = m[2]; }
+      const clean = v => { let x = v, prev; do { prev = x; x = x.replace(/\s*(에\s*)?(거주\s*중?|거주해요|거주합니다|살아요|삽니다|살고\s*있어요|사는\s*중|쪽|근처|부근)\s*$/, "").trim(); } while (x !== prev && x); return x || v.trim(); };
+      out.home = clean(home); out.workArea = clean(work);
+    }
+    // 원하는 점에서 나이 조건만 따로: "위로 92년생 까지 가능", "아래로 01년생", "92~97년생", "연상 3살까지"
+    if (out.wants) {
+      const ageBits = [], rest = [];
+      const yy = n => { n = +n; return n < 100 ? (n > 30 ? 1900 + n : 2000 + n) : n; };
+      const lo = [], hi = [];   // lo: 가장 나이 많은 쪽(출생년도 작은 값), hi: 가장 어린 쪽
+      for (const line of out.wants.split("\n")) {
+        let hit = false, m;
+        if ((m = line.match(/(?:위로|위\s*로는|연상은?)\s*(\d{2,4})\s*년생?/))) { lo.push(yy(m[1])); hit = true; }
+        if ((m = line.match(/(?:아래로|밑으로|연하는?)\s*(\d{2,4})\s*년생?/))) { hi.push(yy(m[1])); hit = true; }
+        if ((m = line.match(/(\d{2,4})\s*(?:년생)?\s*[~\-–]\s*(\d{2,4})\s*년생/))) { const a = yy(m[1]), b = yy(m[2]); lo.push(Math.min(a, b)); hi.push(Math.max(a, b)); hit = true; }
+        if (out.birthYear && (m = line.match(/연상\s*(\d{1,2})\s*살/))) { lo.push(out.birthYear - +m[1]); hit = true; }
+        if (out.birthYear && (m = line.match(/연하\s*(\d{1,2})\s*살/))) { hi.push(out.birthYear + +m[1]); hit = true; }
+        if (out.birthYear && /동갑/.test(line) && !/연하/.test(line)) { hi.push(out.birthYear); hit = true; }
+        const leftover = line.replace(/(\d+|년생|년|위로는?|아래로는?|밑으로|까지|가능|연상은?|연하는?|살|동갑|선호|희망|원해요?|원함|이상|이하|좋아요|괜찮아요|ok|[~\-–,.!·\s])/gi, "");
+        (hit && !leftover ? ageBits : rest).push(line);
+      }
+      if (lo.length || hi.length) {
+        const a = lo.length ? Math.min(...lo) : null, b = hi.length ? Math.max(...hi) : null;
+        const sy = y => `${String(y).slice(2)}년생`;
+        const rel = y => out.birthYear ? (y < out.birthYear ? ` (연상 ${out.birthYear - y}살)` : y > out.birthYear ? ` (연하 ${y - out.birthYear}살)` : " (동갑)") : "";
+        out.wantAge = a && b ? `${sy(a)} ~ ${sy(b)}` : a ? `${sy(a)}까지${rel(a)}` : `${sy(b)}까지${rel(b)}`;
+        out.wantsRest = rest.join("\n");
+      } else out.wantsRest = out.wants;
+    }
     out.score = ["age","height","job","region","mbti","hobby","wants"].filter(k => out[k]).length;
     return out;
   }
@@ -524,9 +556,12 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   });
   function toRow(text, extra) {
     const r = parseForm(text);
+    const fields = [...r.fields];
+    if (r.workArea && !fields.some(f => /직장\s*위치|근무지/.test(f.k))) fields.push({ k: "직장 위치", v: r.workArea });
+    if (r.wantAge && !fields.some(f => f.k === "희망 나이")) fields.push({ k: "희망 나이", v: r.wantAge });
     return {
-      raw: text.trim(), raw_key: rawKey(text), fields: r.fields, birth_year: r.birthYear || null, height_cm: r.heightCm || null,
-      job: r.job || "", region: r.region || "", mbti: r.mbtiCode || "", hobby: r.hobby || "", wants: r.wants || "", ...extra,
+      raw: text.trim(), raw_key: rawKey(text), fields, birth_year: r.birthYear || null, height_cm: r.heightCm || null,
+      job: r.job || "", region: r.home || r.region || "", mbti: r.mbtiCode || "", hobby: r.hobby || "", wants: r.wants || "", ...extra,
     };
   }
   const reqFromRow = r => ({ id: r.id, profileId: r.profile_id, fromId: r.from_id, toId: r.to_id, myProfileId: r.my_profile_id, note: r.note, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at, outcome: r.outcome, friendName: r.friend_name || "" });
@@ -1044,7 +1079,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     function updPrev() {
       const r = parseForm(ta.value);
       if (!st.gender) { const gg = guessGender(r, ""); if (gg.g) setG(gg.g); }
-      const rows = [["나이", r.birthYear ? `${r.birthYear}년생 (${THIS_YEAR - r.birthYear + 1}살)` : r.age], ["키", r.heightCm ? r.heightCm + "cm" : r.height], ["직업", r.job], ["지역", r.region], ["MBTI", r.mbtiCode || r.mbti], ["취미", r.hobby], ["원하는점", r.wants]];
+      const rows = [["나이", r.birthYear ? `${r.birthYear}년생 (${THIS_YEAR - r.birthYear + 1}살)` : r.age], ["키", r.heightCm ? r.heightCm + "cm" : r.height], ["직업", r.job],
+        ["거주", r.home || r.region], ...(r.workArea ? [["직장 위치", r.workArea]] : []), ["MBTI", r.mbtiCode || r.mbti], ["취미", r.hobby],
+        ...(r.wantAge ? [["희망 나이", r.wantAge]] : []), ["원하는 점", r.wantsRest !== undefined ? r.wantsRest : r.wants]];
       prev.replaceChildren(ta.value.trim()
         ? h("dl", { class: "facts" }, rows.map(([k, v]) => h("div", null, h("dt", { text: k }), h("dd", { text: v || "—", style: v ? "" : "color:var(--muted)" }))))
         : h("p", { class: "muted", style: "font-size:13px", text: "붙여넣으면 여기에 자동 분류 결과가 보여요." }));

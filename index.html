@@ -382,6 +382,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   const KEYMAP = [
     ["gender", /성별/], ["age", /나이|년생|출생|생년|연령/], ["height", /^키$|^신장|^키\(/],
     ["job", /하는일|직업|직장|^일$|회사|직무|업무/], ["region", /사는곳|거주|지역|사는동네|사는데|동네|주소/],
+    ["school", /학교|학력|대학|출신교|최종학력/],
     ["mbti", /mbti/i], ["hobby", /취미|관심사|특기/], ["smoke", /흡연|종교|음주|술|담배/], ["wants", /원하는|이상형|바라는|희망|조건|선호/],
   ];
   // 콜론 없이 "키 165" 처럼 쓴 줄을 알아보기 위한 항목 이름들 (긴 것부터)
@@ -397,9 +398,36 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     if (/^\s*[EI][NS][TF][JP]\s*$/i.test(v)) return "MBTI";
     return null;
   }
+  // "168/세종대/하이마트근무/상암거주" 처럼 한 줄에 / 로 이어 쓴 조각 하나를 항목으로 분류
+  function classifySeg(v) {
+    const t = v.trim(), n = t.replace(/\s+/g, "");
+    const strip = (x, re) => x.replace(re, "").trim() || x.trim();
+    if (/^(19|20)?\d{2}\s*년\s*생$|^(19|20)\d{2}$|^\d{2}\s*(살|세)$/.test(n)) return ["나이", t];
+    if (/^1[4-9]\d(cm|센티)?$/i.test(n)) return ["키", t];
+    if (/^[EI][NS][TF][JP]$/i.test(n)) return ["MBTI", t.toUpperCase()];
+    if (/(거주|거주중|살아요|삽니다|사는중|살고있어요)$/.test(n)) return ["거주", strip(t, /\s*(에\s*)?(거주\s*중?|살아요|삽니다|사는\s*중|살고\s*있어요)$/)];
+    if (/(근무|근무중|재직|재직중|다님|다녀요|다니는중|일해요|출근)$/.test(n)) return ["직업", strip(t, /\s*(에서\s*|에\s*)?(근무\s*중?|재직\s*중?|다님|다녀요|다니는\s*중|일해요|출근)$/)];
+    if (/(대학교?|대학원|대|전문대|고등학교|고)(졸업?|재학|휴학|출신|중퇴)?$|졸업$|재학$|학번$/.test(n) && n.length <= 12) return ["학교", t];
+    if (/(비?흡연|담배|금연|비흡)/.test(n)) return ["흡연", t];
+    if (/^(무교|기독교|천주교|불교|교회|성당|크리스천)/.test(n)) return ["종교", t];
+    if (/(사|원|강사|교사|의사|약사|공무원|개발자|디자이너|마케터|MD|PD|엔지니어|연구원|회계사|변호사|세무사|노무사|승무원|트레이너|직장인|프리랜서|사업|대표|팀장|대리|과장|주임|매니저)$/i.test(n)) return ["직업", t];
+    return null;
+  }
+  function expandSlashLine(line) {
+    if (/[:：]/.test(line)) return null;
+    const parts = line.split(/\s*[\/|｜]\s*/).map(x => x.trim()).filter(Boolean);
+    if (parts.length < 2 || parts.some(x => x.length > 20)) return null;
+    const out = parts.map(x => classifySeg(x) || ["기타", x]);
+    return out.filter(([k]) => k !== "기타").length >= 2 ? out : null;
+  }
   function parseForm(text) {
     const fields = []; let cur = null; let curOpen = false;   // curOpen: 값 없이 시작한 항목(아래 줄들이 그 값)
+    const lines = [];
     for (const raw of (text || "").split(/\r?\n/)) {
+      const ex = expandSlashLine(raw.trim().replace(/^(?:\d+\s*[.)]\s*|[-•·*]\s*)/, ""));
+      if (ex) ex.forEach(([k, v]) => lines.push(`${k} : ${v}`)); else lines.push(raw);
+    }
+    for (const raw of lines) {
       const line = raw.trim(); if (!line) continue;
       let m = line.match(/^(?:\d+\s*[.)]\s*|[-•·*▶︎>]\s*)?([^:：]{1,20}?)\s*[:：]\s*(.*)$/);
       if (m && !/^https?$/i.test(m[1].trim())) { cur = { k: m[1].trim(), v: m[2].trim() }; curOpen = !cur.v; fields.push(cur); continue; }
@@ -410,7 +438,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const isBullet = /^[-•·*]/.test(line);
       const b = line.replace(/^[-•·*]\s*/, "");
       if (cur && (curOpen || isBullet)) { cur.v = cur.v ? cur.v + "\n" + b : b; continue; }
-      const gk = guessKeyOfLine(b);
+      const seg = classifySeg(b);
+      const gk = guessKeyOfLine(b) || (seg && seg[0]);
+      if (seg && !guessKeyOfLine(b)) { const ex = fields.find(f => f.k === seg[0]); if (ex) ex.v += "\n" + seg[1]; else fields.push(cur = { k: seg[0], v: seg[1] }); curOpen = false; continue; }
       if (gk) { const ex = fields.find(f => f.k === gk); if (ex) ex.v += "\n" + b; else fields.push(cur = { k: gk, v: b }); curOpen = false; continue; }
       const memo = fields.find(f => f.k === "기타");
       if (memo) memo.v += "\n" + b; else fields.push(cur = { k: "기타", v: b });
@@ -462,7 +492,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         out.wantsRest = rest.join("\n");
       } else out.wantsRest = out.wants;
     }
-    out.score = ["age","height","job","region","mbti","hobby","wants"].filter(k => out[k]).length;
+    out.score = ["age","height","job","region","mbti","hobby","wants","school"].filter(k => out[k]).length;
     return out;
   }
   const rawKey = t => norm(t).replace(/[^0-9a-z가-힣]/g, "").slice(0, 400);
@@ -1080,7 +1110,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const r = parseForm(ta.value);
       if (!st.gender) { const gg = guessGender(r, ""); if (gg.g) setG(gg.g); }
       const rows = [["나이", r.birthYear ? `${r.birthYear}년생 (${THIS_YEAR - r.birthYear + 1}살)` : r.age], ["키", r.heightCm ? r.heightCm + "cm" : r.height], ["직업", r.job],
-        ["거주", r.home || r.region], ...(r.workArea ? [["직장 위치", r.workArea]] : []), ["MBTI", r.mbtiCode || r.mbti], ["취미", r.hobby],
+        ...(r.school ? [["학교", r.school]] : []), ["거주", r.home || r.region], ...(r.workArea ? [["직장 위치", r.workArea]] : []), ["MBTI", r.mbtiCode || r.mbti], ["취미", r.hobby],
         ...(r.wantAge ? [["희망 나이", r.wantAge]] : []), ["원하는 점", r.wantsRest !== undefined ? r.wantsRest : r.wants]];
       prev.replaceChildren(ta.value.trim()
         ? h("dl", { class: "facts" }, rows.map(([k, v]) => h("div", null, h("dt", { text: k }), h("dd", { text: v || "—", style: v ? "" : "color:var(--muted)" }))))

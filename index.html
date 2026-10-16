@@ -236,6 +236,8 @@ img { max-width: 100%; }
 .sv-tools { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg); padding: 8px 0; display: grid; gap: 8px; }
 .sv-tools .count { margin-left: auto; }
 .sharepage { padding-bottom: 100px; }
+.no { flex: none; font-family: var(--f-body); font-size: 11px; font-weight: 700; color: var(--muted); background: var(--sunk); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.no.big { font-size: 13px; padding: 1px 7px; margin-right: 8px; vertical-align: middle; }
 .ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
 .ldel:hover { color: var(--accent); }
 .ldel.armed { background: var(--accent); color: var(--on-accent); }
@@ -355,7 +357,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         </select>
       </div>
       <div class="search">
-        <input type="text" id="q" placeholder="직업, 지역, MBTI, 취미 검색" aria-label="검색">
+        <input type="text" id="q" placeholder="번호(12), 직업, 지역, MBTI 검색" aria-label="검색">
       </div>
       <span class="count" id="count"></span>
       <button class="btn" id="btn-addall"></button>
@@ -631,7 +633,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     id: r.id, createdBy: r.created_by, gender: r.gender, nickname: r.nickname, matchmakerName: r.matchmaker_name,
     raw: r.raw, rawKey: r.raw_key, fields: r.fields || [], birthYear: r.birth_year, heightCm: r.height_cm,
     job: r.job, region: r.region, mbtiCode: r.mbti, hobby: r.hobby, wants: r.wants, photos: r.photos || [],
-    status: r.status, postedAt: r.posted_at, createdAt: r.created_at, consentAt: r.consent_at,
+    serial: r.serial || null, status: r.status, postedAt: r.posted_at, createdAt: r.created_at, consentAt: r.consent_at,
     visibility: r.visibility || "open", full: r.full !== false, accessStatus: r.access_status || null,
   });
   function toRow(text, extra) {
@@ -650,7 +652,10 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
 
   // ---------- 표시용 ----------
   const mmName = p => p.matchmakerName || S.names[p.createdBy] || "이름 없는 주선자";
-  function title(p) {
+  // 고유 번호: 이름이 겹쳐도 "No.12"로 구분 (카톡에서 "12번 분이요"처럼 부르기 좋게)
+  const noOf = p => p.serial ? `No.${p.serial}` : "";
+  const title = p => [noOf(p), baseTitle(p)].filter(Boolean).join(" ");
+  function baseTitle(p) {
     if (p.nickname) return p.nickname;
     const bits = [];
     if (p.birthYear) bits.push(String(p.birthYear).slice(2) + "년생");
@@ -687,7 +692,11 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         if (S.ageFrom && p.birthYear < S.ageFrom) return false;
         if (S.ageTo && p.birthYear > S.ageTo) return false;
       }
-      if (q && !norm([p.nickname, p.raw, mmName(p)].join(" ")).includes(q)) return false;
+      if (q) {
+        const num = q.match(/^(?:no\.?|#)?(\d+)(?:번)?$/);   // "12", "#12", "No.12", "12번" → 번호로 찾기
+        if (num) { if (String(p.serial) !== num[1]) return false; }
+        else if (!norm([p.nickname, p.raw, p.job, p.region, p.mbtiCode, p.hobby, p.wants, mmName(p), noOf(p)].join(" ")).includes(q)) return false;
+      }
       return true;
     }).sort((a, b) => {
       const byNewest = (b.createdAt || "").localeCompare(a.createdAt || "");
@@ -739,7 +748,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         h("button", { class: "lmain", onclick: () => { if (can) { sel ? S.delSel.delete(p.id) : S.delSel.add(p.id); render(); } } },
           h("div", { class: "lthumb" }, src ? h("img", { src, alt: "", class: full ? "" : "blurred" }) : h("span", { text: p.gender === "M" ? "男" : "女" })),
           h("div", { class: "linfo" },
-            h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p)),
+            h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), p.serial ? h("span", { class: "no", text: noOf(p) }) : null, baseTitle(p)),
             h("div", { class: "lmeta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
             h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), mmName(p))),
           h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: STATUS[st] })),
@@ -751,7 +760,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       h("button", { class: "lmain", onclick: () => openDetail(p.id), "aria-label": `${title(p)} 상세 보기` },
         h("div", { class: "lthumb" }, src ? [h("img", { src, alt: "", loading: "lazy", class: full ? "" : "blurred" })] : h("span", { text: p.gender === "M" ? "男" : "女" })),
         h("div", { class: "linfo" },
-          h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p), isNew ? h("span", { class: "new", text: "NEW" }) : null),
+          h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), p.serial ? h("span", { class: "no", text: noOf(p) }) : null, baseTitle(p), isNew ? h("span", { class: "new", text: "NEW" }) : null),
           h("div", { class: "lmeta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
           h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), mmName(p),
             !full ? h("span", { class: "lv", text: "승인 후 공개" }) : isMine(p) && p.visibility !== "open" ? h("span", { class: "lv", text: VIS[p.visibility] }) : null)),
@@ -973,7 +982,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         h("button", { class: "lmain", style: "padding-left:12px", disabled: !p, onclick: () => p && openDetail(p.id), "aria-label": p ? `${title(p)} 상세 보기` : "삭제된 매물" },
           h("div", { class: "lthumb" }, src ? h("img", { src, alt: "", class: p.full !== false ? "" : "blurred" }) : h("span", { text: p && p.gender === "M" ? "男" : "女" })),
           h("div", { class: "linfo" },
-            h("div", { class: "lname" }, p ? [h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p)] : "삭제된 매물"),
+            h("div", { class: "lname" }, p ? [h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), p.serial ? h("span", { class: "no", text: noOf(p) }) : null, baseTitle(p)] : "삭제된 매물"),
             h("div", { class: "lmeta", text: p ? [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") : "" }),
             h("div", { class: "mm" }, h("b", { text: `${k.viewerName || s.label || "지인"}님 신청` }), ` · ${fmtDate(k.createdAt)}`, p ? ` · 주선 ${mmName(p)}` : ""),
             k.message ? h("div", { class: "lmeta", text: `“${k.message}”` }) : null),
@@ -1056,7 +1065,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const right = h("div", { style: "display:grid;gap:14px;align-content:start;min-width:0" },
       h("div", { class: "row" }, h("span", { class: "stamp st-" + st, style: "position:static", text: STATUS[st] }), h("span", { class: "pill p-declined", text: GENDER[p.gender] + "성" }),
         h("span", { class: "pill vis-" + (p.visibility || "open"), text: VIS[p.visibility || "open"] })),
-      h("h3", { class: "headline", text: title(p) }),
+      h("h3", { class: "headline" }, p.serial ? h("span", { class: "no big", text: noOf(p) }) : null, baseTitle(p)),
       h("div", { class: "sub" }, metaLine(p), " · 주선 ", h("b", { text: mmName(p) }), p.postedAt ? ` · ${p.postedAt} 카톡` : ""),
       facts,
       full && p.raw ? h("details", { class: "raw" }, h("summary", null, "카톡 원문 보기"), h("pre", { text: p.raw })) : null);
@@ -1721,7 +1730,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       return h("article", { class: "share-card" },
         ph.length ? h("div", { class: "strip" }, ph.map(u => h("div", { class: "shot" }, h("img", { src: u, alt: "" }), mark()))) : null,
         h("div", { style: "padding:14px 16px;display:grid;gap:10px" },
-          h("h3", { class: "headline", style: "font-size:22px", text: [p.birth_year && String(p.birth_year).slice(2) + "년생", p.job && p.job.split(/\n|\/|,/)[0]].filter(Boolean).join(" ") || "소개 프로필" }),
+          h("h3", { class: "headline", style: "font-size:22px" }, p.serial ? h("span", { class: "no big", text: `No.${p.serial}` }) : null, [p.birth_year && String(p.birth_year).slice(2) + "년생", p.job && p.job.split(/\n|\/|,/)[0]].filter(Boolean).join(" ") || "소개 프로필"),
           h("div", { class: "sub", text: [metaLine(r), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
           h("dl", { class: "facts" }, (p.fields || []).map(f => h("div", null, h("dt", { text: f.k }), h("dd", { text: f.v })))),
           actions));

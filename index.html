@@ -224,6 +224,12 @@ img { max-width: 100%; }
 .age-range select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 8px; font-size: 13px; max-width: 130px; }
 .age-range.on select:not(#sort) { border-color: var(--ink); font-weight: 600; }
 .age-range #sort { margin-left: 6px; }
+.share-card { position: relative; }
+.keep-btn { position: absolute; top: 10px; right: 10px; z-index: 2; border: 0; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,.92); color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.keep-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.sv-tools { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg); padding: 8px 0; display: grid; gap: 8px; }
+.sv-tools .count { margin-left: auto; }
+.sharepage { padding-bottom: 100px; }
 .ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
 .ldel:hover { color: var(--accent); }
 .ldel.armed { background: var(--accent); color: var(--on-accent); }
@@ -1712,6 +1718,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           h("div", { class: "field" }, h("label", { for: "sv-name", text: "내 이름" }), nameIn),
           d.note ? h("p", { class: "callout", text: `“${d.note}”` }) : null);
 
+    const picked = Object.fromEntries(profs.map(p => [p.id, p.my_pick]));
+    let updKeep = null;
     const pickArea = (pid, current, ask) => {
       const area = h("div", { style: "display:grid;gap:8px" });
       const draw = cur => {
@@ -1719,7 +1727,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         const send = async kind => {
           const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: pid, p_kind: kind, p_message: msg.value.trim(), p_name: myName });
           if (error) return toast(/expired/.test(error.message || "") ? "링크 기간이 끝났어요" : "전달하지 못했어요. 다시 눌러 주세요");
-          toast(kind === "want" ? "신청했어요!" : "패스했어요"); draw(kind);
+          toast(kind === "want" ? "신청했어요!" : "패스했어요"); draw(kind); picked[pid] = kind; if (typeof updKeep === "function") updKeep();
         };
         area.replaceChildren(...[
           cur ? h("div", { class: "notice", style: cur === "want" ? "background:var(--ok-soft);color:var(--ok)" : "", text: cur === "want" ? (ask ? "좋다고 전했어요. 주선자가 연락처 교환을 도와줄 거예요." : `신청했어요. ${d.sharer}님이 확인하고 연결해 줄 거예요.`) : "패스했어요." }) : null,
@@ -1728,7 +1736,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
             h("button", { class: "btn primary", style: "flex:1;padding:12px", onclick: () => send("want") }, ask ? "좋아요, 소개 받을게요" : cur === "want" ? "신청됨 ✓" : "이 분 신청하기"),
             h("button", { class: "btn", style: "padding:12px", onclick: () => send("pass") }, ask ? "이번엔 괜찮아요" : "패스"))].filter(Boolean));
       };
-      draw(current); return area;
+      draw(current); area.setPick = draw; return area;
     };
     let body;
     if (d.mode === "ask") {
@@ -1737,11 +1745,76 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const actions = decided ? h("div", { class: "notice", text: d.request_status === "accepted" ? "이미 ‘좋아요’로 답했어요." : "이미 답을 보냈어요." }) : pickArea(pid, profs[0]?.my_pick, true);
       body = profs.length ? profs.map(p => pcard(p, actions))
         : [h("article", { class: "share-card", style: "padding:16px;display:grid;gap:10px" }, h("p", { style: "margin:0", text: d.request_friend ? `${d.request_friend}님 (프로필은 주선자에게 카톡으로 받아 보세요)` : "프로필은 주선자에게 카톡으로 받아 보세요." }), actions)];
-    } else body = profs.map(p => pcard(p, (p.status || "solo") === "solo" ? pickArea(p.id, p.my_pick, false) : h("div", { class: "notice", text: "지금은 다른 분과 진행 중이에요." })));
+    } else {
+      // ---- 받은 사람용: 찜(킵) · 나이 범위 · 나이순 정렬 ----
+      const KEY = "solo_keep_" + token;
+      const keep = new Set((() => { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } })());
+      const saveKeep = () => { try { localStorage.setItem(KEY, JSON.stringify([...keep])); } catch {} };
+      const V = { tab: "all", from: null, to: null, sort: "sent" };
+      const cards = profs.map((p, i) => {
+        const solo = (p.status || "solo") === "solo";
+        const area = solo ? pickArea(p.id, p.my_pick, false) : h("div", { class: "notice", text: "지금은 다른 분과 진행 중이에요." });
+        const heart = h("button", { class: "keep-btn", type: "button", onclick: () => { keep.has(p.id) ? keep.delete(p.id) : keep.add(p.id); saveKeep(); toast(keep.has(p.id) ? "찜했어요" : "찜을 뺐어요"); updKeep(); renderList(); } });
+        const el = pcard(p, area);
+        el.prepend(heart);
+        return { p, i, el, area, heart, solo };
+      });
+      const years = [...new Set(profs.map(p => p.birth_year).filter(Boolean))].sort((a, b) => a - b);
+      const ySel = (id, first) => h("select", { id, "aria-label": first }, h("option", { value: "" }, "전체"), years.map(y => h("option", { value: y }, `${String(y).slice(2)}년생 (${THIS_YEAR - y + 1}살)`)));
+      const fromSel = ySel("sv-from", "출생년도부터"), toSel = ySel("sv-to", "출생년도까지");
+      const sortSel = h("select", { id: "sv-sort", "aria-label": "정렬" }, h("option", { value: "sent" }, "보낸 순서"), h("option", { value: "young" }, "나이 어린순"), h("option", { value: "old" }, "나이 많은순"));
+      const onAge = () => { let a = +fromSel.value || null, b = +toSel.value || null; if (a && b && a > b) { [a, b] = [b, a]; fromSel.value = a; toSel.value = b; } V.from = a; V.to = b; renderList(); };
+      fromSel.addEventListener("change", onAge); toSel.addEventListener("change", onAge);
+      sortSel.addEventListener("change", () => { V.sort = sortSel.value; renderList(); });
+      const tabs = h("div", { class: "chips", role: "group", "aria-label": "보기" });
+      const listBox = h("div", { class: "share-list" });
+      const count = h("span", { class: "count" });
+      const keepBar = h("div", { class: "basket", hidden: true });
+      function renderList() {
+        let rows = cards.filter(c => {
+          if (V.tab === "keep" && !keep.has(c.p.id)) return false;
+          if (V.tab === "want" && picked[c.p.id] !== "want") return false;
+          if (V.from || V.to) { const y = c.p.birth_year; if (!y || (V.from && y < V.from) || (V.to && y > V.to)) return false; }
+          return true;
+        });
+        if (V.sort !== "sent") rows = rows.slice().sort((a, b) => {
+          const ya = a.p.birth_year, yb = b.p.birth_year;
+          if (!ya || !yb) return (!ya) - (!yb) || a.i - b.i;
+          return (V.sort === "young" ? yb - ya : ya - yb) || a.i - b.i;
+        });
+        cards.forEach(c => { const on = keep.has(c.p.id); c.heart.textContent = on ? "♥ 찜함" : "♡ 찜하기"; c.heart.setAttribute("aria-pressed", on ? "true" : "false"); });
+        const nWant = cards.filter(c => picked[c.p.id] === "want").length;
+        tabs.replaceChildren(
+          h("button", { class: "chip", "aria-pressed": V.tab === "all" ? "true" : "false", onclick: () => { V.tab = "all"; renderList(); } }, `전체 ${cards.length}`),
+          h("button", { class: "chip", "aria-pressed": V.tab === "keep" ? "true" : "false", onclick: () => { V.tab = "keep"; renderList(); } }, `♥ 찜 ${keep.size}`),
+          h("button", { class: "chip", "aria-pressed": V.tab === "want" ? "true" : "false", onclick: () => { V.tab = "want"; renderList(); } }, `신청함 ${nWant}`));
+        count.textContent = `${rows.length}명`;
+        listBox.replaceChildren(...(rows.length ? rows.map(c => c.el) : [h("div", { class: "empty" }, h("p", { text: V.tab === "keep" ? "아직 찜한 분이 없어요. 마음에 드는 분에게 ♡를 눌러 두세요." : V.tab === "want" ? "아직 신청한 분이 없어요." : "조건에 맞는 분이 없어요." }))]));
+      }
+      updKeep = () => {
+        const todo = [...keep].filter(id => { const c = cards.find(x => x.p.id === id); return c && c.solo && picked[id] !== "want"; });
+        keepBar.hidden = !keep.size;
+        keepBar.replaceChildren(
+          h("button", { class: "btn ghost", style: "border:0", onclick: () => { V.tab = "keep"; renderList(); window.scrollTo({ top: 0, behavior: "smooth" }); } }, "♥ 찜 ", h("b", { text: `${keep.size}명` })),
+          todo.length ? h("button", { class: "btn primary", onclick: async e => {
+            e.target.disabled = true; let ok = 0;
+            for (const id of todo) {
+              const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: id, p_kind: "want", p_message: "", p_name: myName });
+              if (!error) { ok++; picked[id] = "want"; cards.find(c => c.p.id === id)?.area.setPick?.("want"); }
+            }
+            toast(`${ok}명 신청했어요!`); updKeep(); renderList();
+          } }, `찜한 ${todo.length}명 신청하기`) : h("span", { class: "muted", style: "font-size:13px;padding-right:10px", text: "찜한 분 모두 신청했어요" }));
+      };
+      updKeep(); renderList();
+      body = [h("div", { class: "sv-tools" },
+        tabs,
+        h("div", { class: "age-range" }, h("span", { class: "lbl" }, "나이"), fromSel, h("span", { class: "muted" }, "~"), toSel, sortSel, count)),
+        listBox, keepBar];
+    }
     if (d.mode === "ask") head.append(timer);
     tick();
     if (leftSec() <= 0) return;
-    box.replaceChildren(head, h("div", { class: "share-list" }, body),
+    box.replaceChildren(head, d.mode === "ask" ? h("div", { class: "share-list" }, body) : h("div", { style: "display:grid;gap:14px" }, body),
       h("p", { class: "muted", style: "font-size:12px;text-align:center", text: "이 페이지는 받은 사람만 보도록 보낸 링크예요. 캡처해서 다른 사람에게 보내지 말아 주세요." }));
   }
 

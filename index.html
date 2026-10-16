@@ -633,7 +633,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   // '내 매물' 분류는 등록한 사람이 아니라 주선자 이름 기준 (내가 올렸어도 주선자를 다른 이름으로 적으면 그 사람 매물)
   const myMmName = () => S.myName || S.names[S.me] || "";
   const isMyMm = p => !!myMmName() && norm(mmName(p)) === norm(myMmName());
-  const canManage = p => isMine(p) || S.isAdmin;
+  // 수정·삭제·사진 지우기: 등록한 사람 · 관리자 · 주선자 칸이 내 이름인 매물
+  const canManage = p => isMine(p) || S.isAdmin || isMyMm(p);
+  const canEdit = canManage;
 
   // ---------- render ----------
   function filtered() {
@@ -1044,7 +1046,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     if (reqBox) right.append(reqBox);
 
     const foot = [];
-    if (canManage(p)) {
+    if (canEdit(p)) {
       const stSel = h("select", { class: "in", style: "width:auto", "aria-label": "상태 변경", onchange: async e => {
         const { error } = await sb.from("profiles").update({ status: e.target.value }).eq("id", p.id);
         if (error) return fail(error);
@@ -1494,10 +1496,11 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   // 매물 삭제 (여러 명 한 번에). 사진·흐린 사진도 같이 지워요.
   async function deleteProfiles(list) {
     const ids = list.map(p => p.id);
-    const { error } = await sb.from("profiles").delete().in("id", ids);
-    if (error) return fail(error);
+    // 사진 먼저 지우기 (매물이 남아 있어야 주선자 권한으로 지울 수 있어요)
     const files = list.flatMap(p => (p.photos || []).flatMap(x => [x, blurOf(x)]));
     if (files.length) await sb.storage.from("photos").remove(files).catch(() => {});
+    const { error } = await sb.from("profiles").delete().in("id", ids);
+    if (error) return fail(error);
     ids.forEach(id => { S.basket.delete(id); S.delSel.delete(id); });
     toast(list.length > 1 ? `${list.length}명을 장부에서 삭제했어요` : "장부에서 삭제했어요");
     if (!$("#overlay").hidden) closeSheet();

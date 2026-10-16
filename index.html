@@ -337,6 +337,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>/* jsDelivr가 막힌 환경이면 다른 서버에서 불러오기 */ window.supabase || document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');</script>
 <script src="config.js?v=2"></script>
 <script>
 (() => {
@@ -629,6 +630,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   function hue(str) { let x = 0; for (const c of str || "") x = (x * 31 + c.charCodeAt(0)) % 360; return x; }
   const mmColor = name => `hsl(${hue(name)} 55% 55%)`;
   const isMine = p => S.me && p.createdBy === S.me;
+  // '내 매물' 분류는 등록한 사람이 아니라 주선자 이름 기준 (내가 올렸어도 주선자를 다른 이름으로 적으면 그 사람 매물)
+  const myMmName = () => S.myName || S.names[S.me] || "";
+  const isMyMm = p => !!myMmName() && norm(mmName(p)) === norm(myMmName());
   const canManage = p => isMine(p) || S.isAdmin;
 
   // ---------- render ----------
@@ -638,7 +642,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       if (S.g !== "all" && p.gender !== S.g) return false;
       if (S.s !== "all" && (p.status || "solo") !== S.s) return false;
       if (S.mm && mmName(p) !== S.mm) return false;
-      if (S.mine && !isMine(p)) return false;
+      if (S.mine && !isMyMm(p)) return false;
       if (q && !norm([p.nickname, p.raw, mmName(p)].join(" ")).includes(q)) return false;
       return true;
     }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
@@ -752,7 +756,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
     if (S.mm && !counts[S.mm]) S.mm = "";
     const mmBar = $("#mm-bar"); mmBar.hidden = S.tab === "inbox";
-    const myCount = S.profiles.filter(isMine).length;
+    const myCount = S.profiles.filter(isMyMm).length;
     const setView = (mm, mine) => { if (mine && !S.mine) S.s = "all"; S.mm = mm; S.mine = mine; S.delSel.clear(); S.delMode = false; render(); };
     mmBar.replaceChildren(
       h("button", { class: "mm-tab", "aria-pressed": !S.mm && !S.mine, onclick: () => setView("", false) }, "전체", h("span", { text: S.profiles.length })),
@@ -786,8 +790,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         manageable.length && manageable.every(p => S.delSel.has(p.id)) ? "전체 해제" : `전체 선택 (${manageable.length})`),
       h("button", { class: "btn danger-fill", disabled: !S.delSel.size, onclick: () => confirmDelete(manageable.filter(p => S.delSel.has(p.id))) }, `삭제 ${S.delSel.size || ""}`.trim()),
       h("button", { class: "btn ghost", onclick: () => { S.delMode = false; S.delSel.clear(); render(); } }, "완료")) : null;
-    const mineHead = S.mine ? h("div", { class: "mm-head" }, h("b", { text: "내가 올린 매물" }),
-      h("span", { class: "muted", text: (() => { const all = S.profiles.filter(isMine); const c = st => all.filter(p => (p.status || "solo") === st).length; return `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}`; })() })) : null;
+    const mineHead = S.mine ? h("div", { class: "mm-head" }, h("b", { text: `내 매물 · 주선자 ${myMmName()}` }),
+      h("span", { class: "muted", text: (() => { const all = S.profiles.filter(isMyMm); const c = st => all.filter(p => (p.status || "solo") === st).length; return `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}`; })() })) : null;
     const head = S.mine ? mineHead : S.mm ? (() => {
       const all = S.profiles.filter(p => mmName(p) === S.mm); const c = st => all.filter(p => (p.status || "solo") === st).length;
       return h("div", { class: "mm-head" }, h("span", { class: "dot", style: `background:${mmColor(S.mm)};width:12px;height:12px` }),

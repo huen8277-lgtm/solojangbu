@@ -403,6 +403,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const t = v.trim(), n = t.replace(/\s+/g, "");
     const strip = (x, re) => x.replace(re, "").trim() || x.trim();
     if (/^(19|20)?\d{2}\s*년\s*생$|^(19|20)\d{2}$|^\d{2}\s*(살|세)$/.test(n)) return ["나이", t];
+    // 숫자 두 자리만: 80~99, 00~09 → 출생년도(98 → 98년생), 20~45 → 나이(29 → 29살)
+    if (/^\d{2}$/.test(n)) { const x = +n; if (x >= 80 || x <= 9) return ["나이", `${n}년생`]; if (x >= 20 && x <= 45) return ["나이", `${n}살`]; }
     if (/^1[4-9]\d(cm|센티)?$/i.test(n)) return ["키", t];
     if (/^[EI][NS][TF][JP]$/i.test(n)) return ["MBTI", t.toUpperCase()];
     if (/(거주|거주중|살아요|삽니다|사는중|살고있어요)$/.test(n)) return ["거주", strip(t, /\s*(에\s*)?(거주\s*중?|살아요|삽니다|사는\s*중|살고\s*있어요)$/)];
@@ -418,6 +420,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const parts = line.split(/\s*[\/|｜]\s*/).map(x => x.trim()).filter(Boolean);
     if (parts.length < 2 || parts.some(x => x.length > 20)) return null;
     const out = parts.map(x => classifySeg(x) || ["기타", x]);
+    // 남은 짧은 조각 하나는 보통 동네 이름 (예: "03/162/연세대/신촌")
+    const others = out.filter(([k]) => k === "기타");
+    if (!out.some(([k]) => k === "거주") && others.length === 1 && others[0][1].length <= 8 && !/\d/.test(others[0][1])) others[0][0] = "거주";
     return out.filter(([k]) => k !== "기타").length >= 2 ? out : null;
   }
   function parseForm(text) {

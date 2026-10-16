@@ -192,9 +192,20 @@ img { max-width: 100%; }
 .mm-tab[aria-pressed="true"] span { color: var(--bg); opacity: .7; }
 .ledger { display: grid; gap: 8px; }
 .basket .btn { white-space: nowrap; }
-.lrow { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.lrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .lrow.picked { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .lrow.closed { opacity: .6; }
+.delbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.delbar b { margin-right: auto; }
+.btn.danger-fill { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.danger-fill:disabled { opacity: .4; }
+.lrow.del-picked { border-color: var(--accent); background: var(--accent-soft); }
+.del-mode .lcheck input { accent-color: var(--accent); }
+.mm-tab.mine { border-style: dashed; }
+.mm-tab.mine[aria-pressed="true"] { border-style: solid; }
+.ldel { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; padding: 0 12px; min-width: 52px; }
+.ldel:hover { color: var(--accent); }
+.ldel.armed { background: var(--accent); color: var(--on-accent); }
 .lcheck { display: grid; place-items: center; padding: 0 6px 0 12px; cursor: pointer; }
 .lcheck input { width: 20px; height: 20px; accent-color: var(--accent); }
 .lmain { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 0; background: transparent; text-align: left; padding: 10px 12px 10px 4px; min-width: 0; }
@@ -300,6 +311,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       </div>
       <span class="count" id="count"></span>
       <button class="btn" id="btn-addall"></button>
+      <button class="btn" id="btn-delmode" hidden>선택 삭제</button>
     </section>
 
     <main id="view"></main>
@@ -324,7 +336,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   // ---------- state ----------
   const S = {
     session: null, me: null, isAdmin: false,
-    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {}, openLinks: new Set(),
+    profiles: [], requests: [], members: [], names: {}, urls: {}, shares: [], picks: [], basket: new Set(), lastSeen: null, access: [], dex: {}, openLinks: new Set(), mine: false, delMode: false, delSel: new Set(),
     tab: "all", g: "all", s: "solo", q: "", mm: "", loaded: false,
   };
   const STATUS = { solo: "소개팅 가능", meeting: "진행중", closed: "마감" };
@@ -516,6 +528,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       if (S.g !== "all" && p.gender !== S.g) return false;
       if (S.s !== "all" && (p.status || "solo") !== S.s) return false;
       if (S.mm && mmName(p) !== S.mm) return false;
+      if (S.mine && !isMine(p)) return false;
       if (q && !norm([p.nickname, p.raw, mmName(p)].join(" ")).includes(q)) return false;
       return true;
     }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
@@ -553,6 +566,20 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const inBasket = S.basket.has(p.id);
     const isNew = !isMine(p) && S.lastSeen && p.createdAt && p.createdAt > S.lastSeen;
     const ok = cartable(p);
+    if (S.delMode) {
+      const sel = S.delSel.has(p.id), can = canManage(p);
+      return h("div", { class: "lrow" + (sel ? " del-picked" : "") + (st === "closed" ? " closed" : "") },
+        h("label", { class: "lcheck", title: can ? "삭제할 매물 선택" : "내가 올린 매물만 지울 수 있어요" },
+          h("input", { type: "checkbox", checked: sel, disabled: !can, "aria-label": `${title(p)} 삭제 선택`, onchange: () => { sel ? S.delSel.delete(p.id) : S.delSel.add(p.id); render(); } })),
+        h("button", { class: "lmain", onclick: () => { if (can) { sel ? S.delSel.delete(p.id) : S.delSel.add(p.id); render(); } } },
+          h("div", { class: "lthumb" }, src ? h("img", { src, alt: "", class: full ? "" : "blurred" }) : h("span", { text: p.gender === "M" ? "男" : "女" })),
+          h("div", { class: "linfo" },
+            h("div", { class: "lname" }, h("span", { class: "g g-" + p.gender, text: GENDER[p.gender] }), title(p)),
+            h("div", { class: "lmeta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
+            h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), mmName(p))),
+          h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: STATUS[st] })),
+        h("span"));
+    }
     return h("div", { class: "lrow" + (inBasket ? " picked" : "") + (st === "closed" ? " closed" : "") },
       h("label", { class: "lcheck", title: ok ? "담기" : full ? "마감된 매물은 담을 수 없어요" : "주선자 승인이 필요해요", onclick: e => e.stopPropagation() },
         h("input", { type: "checkbox", checked: inBasket, disabled: !ok, "aria-label": `${title(p)} 담기`, onchange: () => toggleBasket(p.id) })),
@@ -563,7 +590,16 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           h("div", { class: "lmeta", text: [metaLine(p), p.region && p.region.split("\n")[0]].filter(Boolean).join(" · ") }),
           h("div", { class: "mm" }, h("span", { class: "dot", style: `background:${mmColor(mmName(p))}` }), mmName(p),
             !full ? h("span", { class: "lv", text: "승인 후 공개" }) : isMine(p) && p.visibility !== "open" ? h("span", { class: "lv", text: VIS[p.visibility] }) : null)),
-        h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: STATUS[st] })));
+        h("span", { class: "stamp st-" + st, style: "position:static;align-self:center", text: STATUS[st] })),
+      canManage(p) ? (() => {
+        const del = h("button", { class: "ldel", "aria-label": `${title(p)} 삭제`, onclick: e => {
+          e.stopPropagation();
+          if (del.dataset.armed) { deleteProfiles([p]); return; }
+          del.dataset.armed = "1"; del.textContent = "정말 삭제?"; del.classList.add("armed");
+          setTimeout(() => { if (del.isConnected) { delete del.dataset.armed; del.textContent = "삭제"; del.classList.remove("armed"); } }, 3000);
+        } }, "삭제");
+        return del;
+      })() : h("span"));
   }
   const cartable = p => p.full !== false && (p.status || "solo") !== "closed";
   function openCart() {
@@ -606,14 +642,17 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
     if (S.mm && !counts[S.mm]) S.mm = "";
     const mmBar = $("#mm-bar"); mmBar.hidden = S.tab === "inbox";
+    const myCount = S.profiles.filter(isMine).length;
+    const setView = (mm, mine) => { if (mine && !S.mine) S.s = "all"; S.mm = mm; S.mine = mine; S.delSel.clear(); S.delMode = false; render(); };
     mmBar.replaceChildren(
-      h("button", { class: "mm-tab", "aria-pressed": !S.mm, onclick: () => { S.mm = ""; render(); } }, "전체", h("span", { text: S.profiles.length })),
-      ...names.map(n => h("button", { class: "mm-tab", "aria-pressed": S.mm === n, onclick: () => { S.mm = n; render(); } },
+      h("button", { class: "mm-tab", "aria-pressed": !S.mm && !S.mine, onclick: () => setView("", false) }, "전체", h("span", { text: S.profiles.length })),
+      h("button", { class: "mm-tab mine", "aria-pressed": S.mine, onclick: () => setView("", true) }, "내 매물", h("span", { text: myCount })),
+      ...names.map(n => h("button", { class: "mm-tab", "aria-pressed": S.mm === n && !S.mine, onclick: () => setView(n, false) },
         h("i", { class: "dot", style: `background:${mmColor(n)}` }), n, h("span", { text: counts[n] }))));
     const n = todo(); const bd = $("#inbox-badge"); bd.hidden = !n; bd.textContent = n;
     // 보낼 목록 바
     const bar = $("#basket"); const ids = [...S.basket].filter(id => S.profiles.some(p => p.id === id));
-    bar.hidden = !ids.length || S.tab === "inbox";
+    bar.hidden = !ids.length || S.tab === "inbox" || S.delMode;
     bar.replaceChildren(h("button", { class: "btn ghost", style: "border:0", onclick: openCart }, "장바구니 ", h("b", { text: `${ids.length}명` })),
       h("button", { class: "btn primary", onclick: () => openShareDialog(ids) }, "링크 만들기"));
 
@@ -625,13 +664,26 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const allIn = addable.length && addable.every(p => S.basket.has(p.id));
     const ab = $("#btn-addall"); ab.hidden = !addable.length;
     ab.textContent = allIn ? `이 목록 빼기 (${addable.length})` : `이 목록 전체 담기 (${addable.length})`;
+    const manageable = list.filter(canManage);
+    for (const id of [...S.delSel]) if (!manageable.some(p => p.id === id)) S.delSel.delete(id);
+    ab.hidden = ab.hidden || S.delMode;
+    const db = $("#btn-delmode"); db.hidden = !manageable.length || S.delMode;
+    db.textContent = S.mine ? "선택 삭제" : "선택 삭제";
     if (!list.length) { v.replaceChildren(emptyState()); return; }
-    const head = S.mm ? (() => {
+    const delBar = S.delMode ? h("div", { class: "delbar" },
+      h("b", { text: `${S.delSel.size}명 선택됨` }),
+      h("button", { class: "btn", onclick: () => { const all = manageable.every(p => S.delSel.has(p.id)); manageable.forEach(p => all ? S.delSel.delete(p.id) : S.delSel.add(p.id)); render(); } },
+        manageable.length && manageable.every(p => S.delSel.has(p.id)) ? "전체 해제" : `전체 선택 (${manageable.length})`),
+      h("button", { class: "btn danger-fill", disabled: !S.delSel.size, onclick: () => confirmDelete(manageable.filter(p => S.delSel.has(p.id))) }, `삭제 ${S.delSel.size || ""}`.trim()),
+      h("button", { class: "btn ghost", onclick: () => { S.delMode = false; S.delSel.clear(); render(); } }, "완료")) : null;
+    const mineHead = S.mine ? h("div", { class: "mm-head" }, h("b", { text: "내가 올린 매물" }),
+      h("span", { class: "muted", text: (() => { const all = S.profiles.filter(isMine); const c = st => all.filter(p => (p.status || "solo") === st).length; return `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}`; })() })) : null;
+    const head = S.mine ? mineHead : S.mm ? (() => {
       const all = S.profiles.filter(p => mmName(p) === S.mm); const c = st => all.filter(p => (p.status || "solo") === st).length;
       return h("div", { class: "mm-head" }, h("span", { class: "dot", style: `background:${mmColor(S.mm)};width:12px;height:12px` }),
         h("b", { text: `${S.mm}님의 매물` }), h("span", { class: "muted", text: `등록 ${all.length} · 소개팅 가능 ${c("solo")} · 진행중 ${c("meeting")} · 마감 ${c("closed")}` }));
     })() : null;
-    v.replaceChildren(...[head, h("div", { class: "ledger" }, list.map(row))].filter(Boolean));
+    v.replaceChildren(...[head, delBar, h("div", { class: "ledger" + (S.delMode ? " del-mode" : "") }, list.map(row))].filter(Boolean));
   }
 
   // ---------- 신청함 ----------
@@ -1290,11 +1342,28 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     else if (/row-level security|forbidden|permission/i.test(m)) toast("권한이 없어요");
     else toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
-  async function removeProfile(p) {
-    const { error } = await sb.from("profiles").delete().eq("id", p.id);
+  async function removeProfile(p) { await deleteProfiles([p]); }
+  // 매물 삭제 (여러 명 한 번에). 사진·흐린 사진도 같이 지워요.
+  async function deleteProfiles(list) {
+    const ids = list.map(p => p.id);
+    const { error } = await sb.from("profiles").delete().in("id", ids);
     if (error) return fail(error);
-    if (p.photos?.length) await sb.storage.from("photos").remove(p.photos);
-    toast("삭제했어요"); closeSheet(); refresh();
+    const files = list.flatMap(p => (p.photos || []).flatMap(x => [x, blurOf(x)]));
+    if (files.length) await sb.storage.from("photos").remove(files).catch(() => {});
+    ids.forEach(id => { S.basket.delete(id); S.delSel.delete(id); });
+    toast(list.length > 1 ? `${list.length}명을 장부에서 삭제했어요` : "장부에서 삭제했어요");
+    if (!$("#overlay").hidden) closeSheet();
+    refresh();
+  }
+  function confirmDelete(list) {
+    const others = list.filter(p => !isMine(p)).length;
+    sheet(`${list.length}명 삭제`, h("div", { style: "display:grid;gap:12px" },
+      h("p", { style: "margin:0", text: "아래 매물을 장부에서 지워요. 사진과 신청 기록도 같이 지워지고 되돌릴 수 없어요." }),
+      others ? h("div", { class: "notice", text: `관리자 권한으로 다른 주선자가 올린 매물 ${others}명도 포함돼 있어요.` }) : null,
+      h("div", { class: "list" }, list.map(p => h("div", { class: "req" }, thumb(p),
+        h("div", { class: "info" }, h("b", { text: title(p) }), h("span", { class: "note", text: `${metaLine(p)} · 주선 ${mmName(p)}` })))))),
+      [h("button", { class: "btn", onclick: closeSheet }, "취소"),
+       h("button", { class: "btn primary", style: "background:var(--accent)", onclick: e => { e.target.disabled = true; deleteProfiles(list); } }, `${list.length}명 삭제`)]);
   }
   async function answer(r, status) {
     const { error } = await sb.rpc("answer_request", { p_id: r.id, p_status: status });
@@ -1609,6 +1678,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
   document.querySelectorAll("[data-g]").forEach(b => b.addEventListener("click", () => { S.g = b.dataset.g; render(); }));
   document.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => { S.s = b.dataset.s; render(); }));
   $("#q").addEventListener("input", e => { S.q = e.target.value; render(); });
+  $("#btn-delmode").addEventListener("click", () => { S.delMode = true; S.delSel.clear(); render(); });
   $("#btn-addall").addEventListener("click", () => {
     const ids = filtered().filter(cartable).map(p => p.id);
     const allIn = ids.length && ids.every(id => S.basket.has(id));

@@ -337,12 +337,19 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
+<script src="config.js?v=2"></script>
 <script>
 (() => {
   const cfg = window.SOLO_CONFIG || {};
-  const sb = window.supabase && cfg.SUPABASE_URL && !/YOUR/.test(cfg.SUPABASE_URL)
-    ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
+  // 설정 점검: 무엇이 빠졌는지 화면에 정확히 알려주기
+  const cfgProblem = !window.SOLO_CONFIG ? "config.js 파일을 못 읽었어요. GitHub 저장소에 index.html과 같은 위치(맨 바깥)에 config.js가 있는지, 파일 이름이 정확히 config.js(소문자)인지 확인해 주세요. 파일 안에 따옴표·쉼표가 빠지면 이 메시지가 나올 수 있어요."
+    : !cfg.SUPABASE_URL || /YOUR/i.test(cfg.SUPABASE_URL) ? "config.js의 SUPABASE_URL이 아직 예시 값이에요. Supabase 프로젝트 주소(https://xxxx.supabase.co)로 바꿔 주세요."
+    : !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(cfg.SUPABASE_URL.trim()) ? `SUPABASE_URL 형식이 이상해요: "${cfg.SUPABASE_URL}". https://xxxx.supabase.co 형태여야 해요 (뒤에 /rest/v1 같은 건 빼 주세요).`
+    : !cfg.SUPABASE_ANON_KEY || /YOUR/i.test(cfg.SUPABASE_ANON_KEY) ? "config.js의 SUPABASE_ANON_KEY가 아직 예시 값이에요. Supabase의 anon(또는 publishable) 키를 넣어 주세요."
+    : !window.supabase ? "Supabase 연결 프로그램을 인터넷에서 못 불러왔어요. 광고 차단 확장 프로그램을 끄거나 다른 브라우저로 열어 보세요."
+    : null;
+  let sb = null;
+  if (!cfgProblem) { try { sb = window.supabase.createClient(cfg.SUPABASE_URL.trim().replace(/\/$/, ""), cfg.SUPABASE_ANON_KEY.trim()); } catch (e) { console.error(e); } }
 
   // ---------- state ----------
   const S = {
@@ -1729,7 +1736,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     $("#app").hidden = true; $("#gate").hidden = false;
     const box = $("#gate-box");
     if (!sb) {
-      box.replaceChildren(h("h1", { text: "솔로 장부" }), h("p", { text: "config.js에 Supabase 주소와 키를 넣어야 사이트가 동작해요. 설치 가이드(README.md)를 참고하세요." }));
+      box.replaceChildren(h("h1", { text: "솔로 장부" }), h("p", { text: cfgProblem || "Supabase 연결을 만들지 못했어요. config.js의 주소와 키를 다시 확인해 주세요." }), h("p", { class: "muted", style: "font-size:12px", text: "설정을 고친 뒤 Ctrl+Shift+R(강력 새로고침)로 다시 열어 주세요. GitHub 반영에는 1~2분 걸려요." }));
       return;
     }
     const phone = h("input", { type: "text", id: "lg-phone", inputmode: "numeric", autocomplete: "tel", placeholder: "010-0000-0000" });

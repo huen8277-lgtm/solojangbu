@@ -1782,7 +1782,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const cards = profs.map((p, i) => {
         const solo = (p.status || "solo") === "solo";
         const area = solo ? pickArea(p.id, p.my_pick, false) : h("div", { class: "notice", text: "지금은 다른 분과 진행 중이에요." });
-        const heart = h("button", { class: "keep-btn", type: "button", onclick: () => { keep.has(p.id) ? keep.delete(p.id) : keep.add(p.id); saveKeep(); toast(keep.has(p.id) ? "찜했어요" : "찜을 뺐어요"); updKeep(); renderList(); } });
+        const heart = h("button", { class: "keep-btn", type: "button", onclick: () => { keep.has(p.id) ? keep.delete(p.id) : keep.add(p.id); saveKeep(); toast(keep.has(p.id) ? "찜했어요" : "찜을 뺐어요"); updKeep(); V.tab === "keep" ? renderList() : syncMeta(); } });
         const el = pcard(p, area);
         el.prepend(heart);
         return { p, i, el, area, heart, solo };
@@ -1810,14 +1810,20 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           if (!ya || !yb) return (!ya) - (!yb) || a.i - b.i;
           return (V.sort === "young" ? yb - ya : ya - yb) || a.i - b.i;
         });
+        const y = window.scrollY;
+        syncMeta(rows.length);
+        listBox.replaceChildren(...(rows.length ? rows.map(c => c.el) : [h("div", { class: "empty" }, h("p", { text: V.tab === "keep" ? "아직 찜한 분이 없어요. 마음에 드는 분에게 ♡를 눌러 두세요." : V.tab === "want" ? "아직 신청한 분이 없어요." : "조건에 맞는 분이 없어요." }))]));
+        window.scrollTo(0, y);
+      }
+      // 목록은 그대로 두고 하트·탭 숫자만 갱신 (스크롤 위치 유지)
+      function syncMeta(n) {
         cards.forEach(c => { const on = keep.has(c.p.id); c.heart.textContent = on ? "♥ 찜함" : "♡ 찜하기"; c.heart.setAttribute("aria-pressed", on ? "true" : "false"); });
         const nWant = cards.filter(c => picked[c.p.id] === "want").length;
         tabs.replaceChildren(
           h("button", { class: "chip", "aria-pressed": V.tab === "all" ? "true" : "false", onclick: () => { V.tab = "all"; renderList(); } }, `전체 ${cards.length}`),
           h("button", { class: "chip", "aria-pressed": V.tab === "keep" ? "true" : "false", onclick: () => { V.tab = "keep"; renderList(); } }, `♥ 찜 ${keep.size}`),
           h("button", { class: "chip", "aria-pressed": V.tab === "want" ? "true" : "false", onclick: () => { V.tab = "want"; renderList(); } }, `신청함 ${nWant}`));
-        count.textContent = `${rows.length}명`;
-        listBox.replaceChildren(...(rows.length ? rows.map(c => c.el) : [h("div", { class: "empty" }, h("p", { text: V.tab === "keep" ? "아직 찜한 분이 없어요. 마음에 드는 분에게 ♡를 눌러 두세요." : V.tab === "want" ? "아직 신청한 분이 없어요." : "조건에 맞는 분이 없어요." }))]));
+        if (n != null) count.textContent = `${n}명`;
       }
       updKeep = () => {
         const todo = [...keep].filter(id => { const c = cards.find(x => x.p.id === id); return c && c.solo && picked[id] !== "want"; });

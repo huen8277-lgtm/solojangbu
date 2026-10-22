@@ -169,7 +169,7 @@ textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
 .gate-box h1 { font-family: var(--f-display); font-size: 32px; margin: 0; }
 .gate-box p { margin: 0; color: var(--muted); }
 .me { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; z-index: 40; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 14px; z-index: 40; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 .notice { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 .req.clickable { cursor: pointer; transition: background .15s; }
@@ -421,7 +421,16 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     return el;
   }
   let toastT;
-  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
+  function toast(msg) {
+    const t = $("#toast"); t.textContent = msg; t.hidden = false;
+    // 하단 담기/찜 바가 떠 있으면 그 위로 띄워서 '링크 만들기' 버튼을 가리지 않게
+    const place = () => {
+      const bar = [...document.querySelectorAll(".basket")].find(b => !b.hidden && b.getClientRects().length);
+      t.style.bottom = bar ? `${Math.max(20, innerHeight - bar.getBoundingClientRect().top + 10)}px` : "";
+    };
+    place(); requestAnimationFrame(place);   // 담기 직후 바가 새로 나타나는 경우도 반영
+    clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800);
+  }
   const norm = s => (s || "").replace(/\s+/g, "").toLowerCase();
   const photoUrl = path => S.urls[path] || "";
   const blurOf = path => path.replace(/\/([^/]+)$/, "/blur/$1");
@@ -1617,8 +1626,9 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     else if (/own_profile/.test(m)) toast("내가 등록한 사람에게는 신청할 수 없어요");
     else if (/need_access/.test(m)) toast("주선자 승인을 받은 매물만 지인에게 보낼 수 있어요");
     else if (error.code === "23505" || /duplicate key|profiles_raw_key/.test(m)) toast("이미 장부에 있는 사람이에요");
+    else if (error.code === "PGRST202" || /Could not find the function|schema cache|function .* does not exist/i.test(m)) toast("DB 업데이트(SQL)가 아직 적용되지 않았어요. Supabase에서 받은 SQL 파일을 실행해 주세요.");
     else if (/row-level security|forbidden|permission/i.test(m)) toast("권한이 없어요");
-    else toast("저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    else toast(`저장하지 못했어요. 잠시 후 다시 시도해 주세요.${error.code ? ` (${error.code})` : ""}`);
   }
   async function removeProfile(p) { await deleteProfiles([p]); }
   // 매물 삭제 (여러 명 한 번에). 사진·흐린 사진도 같이 지워요.

@@ -426,7 +426,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     // 하단 담기/찜 바가 떠 있으면 그 위로 띄워서 '링크 만들기' 버튼을 가리지 않게
     const place = () => {
       const bar = [...document.querySelectorAll(".basket")].find(b => !b.hidden && b.getClientRects().length);
-      t.style.bottom = bar ? `${Math.max(20, innerHeight - bar.getBoundingClientRect().top + 10)}px` : "";
+      // 바와 같은 기준(화면 아래)에서 '바의 bottom + 바 높이 + 10px' → 모바일 주소창·안전영역이 달라도 항상 바 위
+      t.style.bottom = bar ? `${(parseFloat(getComputedStyle(bar).bottom) || 0) + bar.offsetHeight + 10}px` : "";
     };
     place(); requestAnimationFrame(place);   // 담기 직후 바가 새로 나타나는 경우도 반영
     clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800);

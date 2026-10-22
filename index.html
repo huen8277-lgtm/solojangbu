@@ -1562,7 +1562,8 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const codeIn = h("input", { type: "text", id: "adm-code", value: code || "" });
     const list = h("div", { class: "list" }, S.members.map(m => h("div", { class: "req" },
       h("div", { class: "info" }, h("b", { text: m.name + (m.is_admin ? " · 관리자" : "") }), h("span", { class: "note", text: `입장 ${String(m.joined_at).slice(0, 10)} · 등록 ${S.profiles.filter(p => p.createdBy === m.id).length}명` })),
-      m.id !== S.me ? h("div", { class: "act" }, h("button", { class: "btn", onclick: async e => {
+      h("div", { class: "act" }, h("button", { class: "btn", onclick: e => renameForm(e.target.closest(".req"), m) }, "이름 변경"),
+      m.id !== S.me ? [h("button", { class: "btn", onclick: async e => {
         const box = e.target.closest(".req");
         if (box.querySelector(".pin-reset")) return;
         const inp = h("input", { type: "text", inputmode: "numeric", class: "pin-reset", placeholder: "새 PIN 4~8자리", style: "width:130px", "aria-label": "새 PIN" });
@@ -1575,7 +1576,30 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         if (!e.target.dataset.armed) { e.target.dataset.armed = 1; e.target.textContent = "한 번 더 누르면 내보내기"; return; }
         const { error } = await sb.from("members").delete().eq("id", m.id); if (error) return fail(error);
         toast(`${m.name}님을 내보냈어요. 초대코드도 바꿔 주세요.`); closeSheet(); refresh();
-      } }, "내보내기")) : null)));
+      } }, "내보내기")] : null))));
+    // 관리자: 멤버 이름 바꾸기 (+ 예전 이름이 적힌 주선자 칸도 같이)
+    function renameForm(box, m) {
+      if (box.querySelector(".rename")) return;
+      const linked = S.profiles.filter(p => p.matchmakerName && norm(p.matchmakerName) === norm(m.name)).length;
+      const inp = h("input", { type: "text", class: "rename", value: m.name, maxlength: 20, style: "width:140px", "aria-label": "새 이름" });
+      const sync = h("input", { type: "checkbox", checked: true });
+      const ok = h("button", { class: "btn primary", onclick: async () => {
+        const name = inp.value.trim(), oldName = m.name;
+        if (!name) return toast("이름을 적어 주세요");
+        if (name === m.name) return toast("지금 이름과 같아요");
+        ok.disabled = true;
+        const { data, error } = await sb.rpc("admin_rename_member", { p_member: m.id, p_name: name, p_sync: sync.checked });
+        ok.disabled = false;
+        if (error) return /name_taken/.test(error.message || "") ? toast("이미 다른 멤버가 쓰는 이름이에요") : /bad_name/.test(error.message || "") ? toast("이름은 1~20자로 적어 주세요") : fail(error);
+        if (m.id === S.me) S.myName = name;
+        toast(`이름을 바꿨어요: ${oldName} → ${name}${data ? ` · 매물 ${data}개 주선자 칸도 변경` : ""}`);
+        closeSheet(); await refresh(); openAdmin();
+      } }, "저장");
+      box.append(h("div", { class: "rename-box", style: "display:grid;gap:8px;width:100%" },
+        h("div", { class: "row", style: "flex-wrap:nowrap" }, inp, ok),
+        linked ? h("label", { class: "row", style: "gap:6px;font-size:13px" }, sync, `주선자 칸이 ‘${m.name}’인 매물 ${linked}개도 새 이름으로 바꾸기`) : null));
+      inp.focus(); inp.select();
+    }
     sheet("관리", h("div", { style: "display:grid;gap:20px" },
       h("div", { class: "field" }, h("label", { for: "adm-code", text: "초대코드" }),
         h("div", { class: "row", style: "flex-wrap:nowrap" }, codeIn, h("button", { class: "btn primary", onclick: async () => {

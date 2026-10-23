@@ -1245,7 +1245,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     const ta = h("textarea", { id: "ed-raw", placeholder: "카톡에 올라온 양식을 그대로 붙여넣으세요\n\n1. 나이 : 95년생\n2. 키 : 178cm\n3. 하는 일 : 개발자\n4. 사는 곳 : 서울 마포\n5. 기타 :\n- MBTI : INFP\n- 취미 : 러닝, 전시\n6. 원하는점\n- 대화 잘 통하는 사람" });
     ta.value = p.raw || "";
     const nick = h("input", { type: "text", id: "ed-nick", placeholder: "비워두면 ‘96년생 온라인MD’처럼 자동 표시", value: p.nickname || "" });
-    const mm = h("input", { type: "text", id: "ed-mm", placeholder: `비워두면 ${S.names[S.me] || "내 이름"}`, value: p.matchmakerName || "" });
+    const mm = h("input", { type: "text", id: "ed-mm", placeholder: `비워두면 ${p.id ? (p.matchmakerName || S.names[p.createdBy] || "등록한 사람") : (myMmName() || "내 이름")}`, value: p.matchmakerName || "" });
     const vis = h("select", { class: "in", id: "ed-vis" }, [["open", "전체 공개 (기본) · 모든 주선자가 도감에서 사진까지"], ["blind", "승인 후 공개 · 다른 주선자는 흐린 사진+요약만"], ["private", "나만 보기 · 내 지인 신청용"]]
       .map(([v, t]) => h("option", { value: v, selected: (p.visibility || "open") === v }, t)));
     const seg = h("div", { class: "seg", role: "group", "aria-label": "성별" },
@@ -1328,7 +1328,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       if (!ta.value.trim()) return toast("카톡 양식을 붙여넣어 주세요");
       if (!consent.checked) return toast("본인 동의를 확인해 주세요");
       if (st.uploading) return toast("사진이 다 올라갈 때까지 잠깐만요");
-      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim(), photos: st.photos.filter(x => !x.startsWith("tmp:")), consent_at: p.consentAt || new Date().toISOString(), visibility: vis.value });
+      const row = toRow(ta.value, { gender: st.gender, nickname: nick.value.trim(), matchmaker_name: mm.value.trim() || (p.id ? (S.names[p.createdBy] || "") : myMmName()), photos: st.photos.filter(x => !x.startsWith("tmp:")), consent_at: p.consentAt || new Date().toISOString(), visibility: vis.value });
       const d = findDup(candOf(ta.value, st.gender), S.profiles, existing && existing.id);
       if (d && (d.kind === "exact" || !save.dataset.force)) {
         dupWarn.hidden = false;
@@ -1550,7 +1550,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
             go.textContent = `사진 올리는 중 ${++done}/${total}`;
             paths.push(await uploadPhoto(ph.blob));
           }
-          rows.push(toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || "", posted_at: f.date || "", consent_at: now, photos: paths }));
+          rows.push(toRow(f.raw, { gender: f.gender, matchmaker_name: f.who || myMmName(), posted_at: f.date || "", consent_at: now, photos: paths }));
         }
         if (rows.length) { const { error } = await sb.from("profiles").insert(rows); if (error) throw error; }
         // 중복으로 빠진 사람의 새 사진은 기존 프로필에 추가

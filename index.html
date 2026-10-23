@@ -175,6 +175,23 @@ textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
 .req.clickable { cursor: pointer; transition: background .15s; }
 .req.clickable:hover { background: var(--sunk); }
 .req.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pin-note { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: -8px -16px 0; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; background: var(--accent-soft); color: var(--ink); font-size: 14px; border-bottom: 1px solid var(--line); }
+.pin-note b { color: var(--accent); }
+.pin-note .pin-count { margin-left: auto; font-weight: 700; font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; }
+.pin-note .pin-count.full { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.stack { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0 4px 0 0; cursor: pointer; color: var(--ink); font: inherit; }
+.stack .slots { display: flex; }
+.stack .slot { width: 38px; height: 38px; border-radius: 50%; border: 2px dashed var(--line); background: var(--sunk); display: grid; place-items: center; font-size: 15px; color: var(--muted); overflow: hidden; flex: none; transition: transform .2s; }
+.stack .slot + .slot { margin-left: -12px; }
+.stack .slot.on { border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.18); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.stack .slot img { width: 100%; height: 100%; object-fit: cover; }
+.stack .slot.on:nth-child(1) { z-index: 3; } .stack .slot.on:nth-child(2) { z-index: 2; } .stack .slot.on:nth-child(3) { z-index: 1; }
+.stack .stack-n { font-size: 13px; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .stack .slot { transition: none; } }
+.basket.sv-bar { width: calc(100% - 24px); max-width: 560px; border-radius: 20px; padding: 8px 10px; justify-content: space-between; }
+.sv-bar .bar-note { flex: 1; min-width: 0; text-align: right; font-size: 12px; line-height: 1.35; color: var(--muted); padding-right: 6px; }
+.sv-bar .btn.primary { margin-left: auto; }
+.pin-note .pin-text { min-width: 0; }
 </style>
 <style>
 :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); color-scheme: light; }
@@ -1814,22 +1831,30 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
           d.note ? h("p", { class: "callout", text: `“${d.note}”` }) : null);
 
     const picked = Object.fromEntries(profs.map(p => [p.id, p.my_pick]));
-    let updKeep = null;
+    // 링크 받은 사람이 최종 신청할 수 있는 인원
+    const LIMIT = 3;
+    const nWantNow = () => profs.filter(p => picked[p.id] === "want").length;
+    const limitMsg = () => toast(`신청은 최대 ${LIMIT}명까지예요. 다른 분 신청을 취소하고 골라 주세요`);
+    let updKeep = null, pinEl = null;
     const pickArea = (pid, current, ask) => {
       const area = h("div", { style: "display:grid;gap:8px" });
       const draw = cur => {
         const msg = h("input", { type: "text", placeholder: ask ? "한마디 (선택)" : "주선자에게 한마디 (선택)", "aria-label": "한마디" });
         const send = async kind => {
+          const cancel = !ask && kind === "pass" && picked[pid] === "want";
+          if (!ask && kind === "want" && picked[pid] !== "want" && nWantNow() >= LIMIT) return limitMsg();
           const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: pid, p_kind: kind, p_message: msg.value.trim(), p_name: myName });
-          if (error) return toast(/expired/.test(error.message || "") ? "링크 기간이 끝났어요" : "전달하지 못했어요. 다시 눌러 주세요");
-          toast(kind === "want" ? "신청했어요!" : "패스했어요"); draw(kind); picked[pid] = kind; if (typeof updKeep === "function") updKeep();
+          if (error) return /pick_limit/.test(error.message || "") ? limitMsg() : toast(/expired/.test(error.message || "") ? "링크 기간이 끝났어요" : "전달하지 못했어요. 다시 눌러 주세요");
+          picked[pid] = kind;
+          toast(cancel ? "신청을 취소했어요" : kind === "want" ? `신청했어요! (${nWantNow()}/${LIMIT})` : "패스했어요");
+          draw(cancel ? null : kind); if (typeof updKeep === "function") updKeep();
         };
         area.replaceChildren(...[
           cur ? h("div", { class: "notice", style: cur === "want" ? "background:var(--ok-soft);color:var(--ok)" : "", text: cur === "want" ? (ask ? "좋다고 전했어요. 주선자가 연락처 교환을 도와줄 거예요." : `신청했어요. ${d.sharer}님이 확인하고 연결해 줄 거예요.`) : "패스했어요." }) : null,
           !cur ? msg : null,
           h("div", { class: "row" },
             h("button", { class: "btn primary", style: "flex:1;padding:12px", onclick: () => send("want") }, ask ? "좋아요, 소개 받을게요" : cur === "want" ? "신청됨 ✓" : "이 분 신청하기"),
-            h("button", { class: "btn", style: "padding:12px", onclick: () => send("pass") }, ask ? "이번엔 괜찮아요" : "패스"))].filter(Boolean));
+            h("button", { class: "btn", style: "padding:12px", onclick: () => send("pass") }, ask ? "이번엔 괜찮아요" : cur === "want" ? "신청 취소" : "패스"))].filter(Boolean));
       };
       draw(current); area.setPick = draw; return area;
     };
@@ -1864,7 +1889,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
       const tabs = h("div", { class: "chips", role: "group", "aria-label": "보기" });
       const listBox = h("div", { class: "share-list" });
       const count = h("span", { class: "count" });
-      const keepBar = h("div", { class: "basket", hidden: true });
+      const keepBar = h("div", { class: "basket sv-bar", hidden: true });
       function renderList() {
         let rows = cards.filter(c => {
           if (V.tab === "keep" && !keep.has(c.p.id)) return false;
@@ -1890,24 +1915,41 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
         tabs.replaceChildren(
           h("button", { class: "chip", "aria-pressed": V.tab === "all" ? "true" : "false", onclick: () => { V.tab = "all"; renderList(); } }, `전체 ${cards.length}`),
           h("button", { class: "chip", "aria-pressed": V.tab === "keep" ? "true" : "false", onclick: () => { V.tab = "keep"; renderList(); } }, `♥ 찜 ${keep.size}`),
-          h("button", { class: "chip", "aria-pressed": V.tab === "want" ? "true" : "false", onclick: () => { V.tab = "want"; renderList(); } }, `신청함 ${nWant}`));
+          h("button", { class: "chip", "aria-pressed": V.tab === "want" ? "true" : "false", onclick: () => { V.tab = "want"; renderList(); } }, `신청 ${nWant}/${LIMIT}`));
         if (n != null) count.textContent = `${n}명`;
       }
+      // 상단 고정 안내 + 하단 '신청 3자리' 스택
+      const pin = h("div", { class: "pin-note", role: "status" });
+      const thumbOf = p => { const u = p && p.photos && p.photos[0] && photoUrl(p.photos[0]); return u ? h("img", { src: u, alt: "" }) : h("span", { text: p && p.gender === "M" ? "男" : "女" }); };
       updKeep = () => {
+        const wants = cards.filter(c => picked[c.p.id] === "want");
+        const n = wants.length, left = LIMIT - n;
+        pin.replaceChildren(h("span", { class: "pin-text" }, "📌 신청은 ", h("b", { text: `최대 ${LIMIT}명까지` }), " 할 수 있어요"),
+          h("span", { class: "pin-count" + (n >= LIMIT ? " full" : ""), text: `신청 ${n}/${LIMIT}` }));
         const todo = [...keep].filter(id => { const c = cards.find(x => x.p.id === id); return c && c.solo && picked[id] !== "want"; });
-        keepBar.hidden = !keep.size;
-        keepBar.replaceChildren(
-          h("button", { class: "btn ghost", style: "border:0", onclick: () => { V.tab = "keep"; renderList(); window.scrollTo({ top: 0, behavior: "smooth" }); } }, "♥ 찜 ", h("b", { text: `${keep.size}명` })),
-          todo.length ? h("button", { class: "btn primary", onclick: async e => {
+        const stack = h("button", { class: "stack", type: "button", "aria-label": `신청한 분 ${n}명 보기`, onclick: () => { V.tab = "want"; renderList(); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+          h("span", { class: "slots" }, Array.from({ length: LIMIT }, (_, k) => wants[k] ? h("span", { class: "slot on", title: noOf(wants[k].p) }, thumbOf(wants[k].p)) : h("span", { class: "slot", text: "+" }))),
+          h("span", { class: "stack-n" }, h("b", { text: `${n}/${LIMIT}` }), " 신청"));
+        let action = null;
+        if (n >= LIMIT) action = h("span", { class: "bar-note", text: "신청 완료! 주선자가 연락할 거예요" });
+        else if (todo.length && todo.length <= left) action = h("button", { class: "btn primary", onclick: async e => {
             e.target.disabled = true; let ok = 0;
             for (const id of todo) {
+              if (nWantNow() >= LIMIT) break;
               const { error } = await sb.rpc("pick_share", { p_token: token, p_profile: id, p_kind: "want", p_message: "", p_name: myName });
               if (!error) { ok++; picked[id] = "want"; cards.find(c => c.p.id === id)?.area.setPick?.("want"); }
             }
-            toast(`${ok}명 신청했어요!`); updKeep(); renderList();
-          } }, `찜한 ${todo.length}명 신청하기`) : h("span", { class: "muted", style: "font-size:13px;padding-right:10px", text: "찜한 분 모두 신청했어요" }));
+            toast(`${ok}명 신청했어요! (${nWantNow()}/${LIMIT})`); updKeep(); renderList();
+          } }, `찜한 ${todo.length}명 신청하기`);
+        else if (todo.length) action = h("span", { class: "bar-note", text: `찜 ${todo.length}명 중 ${left}명만 더 고를 수 있어요` });
+        keepBar.hidden = false;
+        keepBar.replaceChildren(...[stack,
+          keep.size ? h("button", { class: "btn ghost", style: "border:0;padding:8px", onclick: () => { V.tab = "keep"; renderList(); window.scrollTo({ top: 0, behavior: "smooth" }); } }, "♥ ", h("b", { text: `${keep.size}` })) : null,
+          action].filter(Boolean));
+        syncMeta();
       };
       updKeep(); renderList();
+      pinEl = pin;
       body = [h("div", { class: "sv-tools" },
         tabs,
         h("div", { class: "age-range" }, h("span", { class: "lbl" }, "나이"), fromSel, h("span", { class: "muted" }, "~"), toSel, sortSel, count)),
@@ -1916,7 +1958,7 @@ img.blurred, .main.blind img { filter: blur(6px) saturate(.8); transform: scale(
     if (d.mode === "ask") head.append(timer);
     tick();
     if (leftSec() <= 0) return;
-    box.replaceChildren(head, d.mode === "ask" ? h("div", { class: "share-list" }, body) : h("div", { style: "display:grid;gap:14px" }, body),
+    box.replaceChildren(...(pinEl ? [pinEl] : []), head, d.mode === "ask" ? h("div", { class: "share-list" }, body) : h("div", { style: "display:grid;gap:14px" }, body),
       h("p", { class: "muted", style: "font-size:12px;text-align:center", text: "이 페이지는 받은 사람만 보도록 보낸 링크예요. 캡처해서 다른 사람에게 보내지 말아 주세요." }));
   }
 
